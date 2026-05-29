@@ -8,7 +8,8 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `receipt_${uuidv4()}${ext}`);
+    const prefix = file.fieldname === 'avatar' ? 'avatar_' : 'receipt_';
+    cb(null, `${prefix}${uuidv4()}${ext}`);
   },
 });
 

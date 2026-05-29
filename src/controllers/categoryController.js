@@ -4,7 +4,7 @@ const { success } = require('../utils/response');
 const getCategories = async (req, res, next) => {
   try {
     const { type } = req.query;
-    const conditions = ['(user_id = $1 OR is_system = true)'];
+    const conditions = ['(c.user_id = $1 OR c.is_system = true)'];
     const values = [req.user.id];
 
     if (type) {

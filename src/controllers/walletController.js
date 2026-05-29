@@ -30,7 +30,21 @@ const getWallet = async (req, res, next) => {
     if (!result.rows.length) {
       return res.status(404).json({ success: false, message: 'Wallet not found' });
     }
-    return success(res, result.rows[0]);
+
+    const wallet = result.rows[0];
+
+    const recentRes = await query(
+      `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.wallet_id = $1 AND t.user_id = $2
+       ORDER BY t.date DESC, t.created_at DESC
+       LIMIT 5`,
+      [req.params.id, req.user.id]
+    );
+    wallet.recent_activity = recentRes.rows;
+
+    return success(res, wallet);
   } catch (err) {
     next(err);
   }
@@ -62,7 +76,7 @@ const updateWallet = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Wallet not found' });
     }
 
-    const { name, account_number, bank_name, color, is_default } = req.body;
+    const { name, account_number, bank_name, color, is_default, balance } = req.body;
 
     // If setting as default, unset others first
     if (is_default) {
@@ -75,9 +89,10 @@ const updateWallet = async (req, res, next) => {
            account_number = COALESCE($2, account_number),
            bank_name = COALESCE($3, bank_name),
            color = COALESCE($4, color),
-           is_default = COALESCE($5, is_default)
-       WHERE id = $6 RETURNING *`,
-      [name, account_number, bank_name, color, is_default, req.params.id]
+           is_default = COALESCE($5, is_default),
+           balance = COALESCE($6, balance)
+       WHERE id = $7 RETURNING *`,
+      [name, account_number, bank_name, color, is_default, balance, req.params.id]
     );
 
     return success(res, result.rows[0], 'Wallet updated');
@@ -117,7 +132,20 @@ const getTotalBalance = async (req, res, next) => {
        FROM wallets WHERE user_id = $1`,
       [req.user.id]
     );
-    return success(res, result.rows[0]);
+
+    const txRes = await query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END), 0) AS total_income,
+         COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0) AS total_expense
+       FROM transactions WHERE user_id = $1`,
+      [req.user.id]
+    );
+
+    return success(res, {
+      ...result.rows[0],
+      total_income: txRes.rows[0].total_income,
+      total_expense: txRes.rows[0].total_expense
+    });
   } catch (err) {
     next(err);
   }

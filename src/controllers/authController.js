@@ -148,10 +148,15 @@ const getMe = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const { first_name, last_name, monthly_limit } = req.body;
+    let avatar_url = req.body.avatar_url;
+    if (req.file) {
+      avatar_url = `/uploads/${req.file.filename}`;
+    }
+
     const result = await query(
-      `UPDATE users SET first_name=$1, last_name=$2, monthly_limit=COALESCE($3, monthly_limit)
-       WHERE id=$4 RETURNING id, email, first_name, last_name, is_premium, monthly_limit, avatar_url`,
-      [first_name, last_name, monthly_limit, req.user.id]
+      `UPDATE users SET first_name=$1, last_name=$2, monthly_limit=COALESCE($3, monthly_limit), avatar_url=COALESCE($4, avatar_url)
+       WHERE id=$5 RETURNING id, email, first_name, last_name, is_premium, monthly_limit, avatar_url`,
+      [first_name, last_name, monthly_limit, avatar_url, req.user.id]
     );
     return success(res, result.rows[0], 'Profile updated');
   } catch (err) {
@@ -200,4 +205,55 @@ const updatePreferences = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, refreshToken, logout, getMe, updateProfile, updatePassword, updatePreferences };
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const userRes = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (!userRes.rows.length) {
+      return success(res, null, 'If that email is registered, we have sent a reset link.');
+    }
+
+    const resetToken = uuidv4();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await query(
+      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      [resetToken, expiresAt, userRes.rows[0].id]
+    );
+
+    console.log(`[Email Mock] Password reset link for ${email}: /reset-password?token=${resetToken}`);
+    
+    return success(res, { reset_token: resetToken }, 'If that email is registered, we have sent a reset link.');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, new_password } = req.body;
+    
+    const userRes = await query(
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      [token]
+    );
+
+    if (!userRes.rows.length) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    const hash = await bcrypt.hash(new_password, 12);
+    await query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      [hash, userRes.rows[0].id]
+    );
+    
+    await query('DELETE FROM refresh_tokens WHERE user_id = $1', [userRes.rows[0].id]);
+
+    return success(res, null, 'Password has been reset successfully.');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, refreshToken, logout, getMe, updateProfile, updatePassword, updatePreferences, forgotPassword, resetPassword };

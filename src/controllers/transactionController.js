@@ -77,23 +77,30 @@ const getTransaction = async (req, res, next) => {
 
 const createTransaction = async (req, res, next) => {
   try {
-    const { wallet_id, category_id, type, amount, description, merchant_name, notes, date } = req.body;
+    const { wallet_id, to_wallet_id, category_id, type, amount, description, merchant_name, notes, date } = req.body;
 
     // Check wallet belongs to user
     if (wallet_id) {
       const w = await query('SELECT id FROM wallets WHERE id=$1 AND user_id=$2', [wallet_id, req.user.id]);
-      if (!w.rows.length) return res.status(400).json({ success: false, message: 'Wallet not found' });
+      if (!w.rows.length) return res.status(400).json({ success: false, message: 'Source wallet not found' });
+    }
+    if (type === 'transfer' && to_wallet_id) {
+      const w2 = await query('SELECT id FROM wallets WHERE id=$1 AND user_id=$2', [to_wallet_id, req.user.id]);
+      if (!w2.rows.length) return res.status(400).json({ success: false, message: 'Destination wallet not found' });
     }
 
     const result = await query(
-      `INSERT INTO transactions (user_id, wallet_id, category_id, type, amount, description, merchant_name, notes, date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      `INSERT INTO transactions (user_id, wallet_id, to_wallet_id, category_id, type, amount, description, merchant_name, notes, date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
-      [req.user.id, wallet_id || null, category_id || null, type, amount, description, merchant_name, notes, date || new Date()]
+      [req.user.id, wallet_id || null, to_wallet_id || null, category_id || null, type, amount, description, merchant_name, notes, date || new Date()]
     );
 
     // Update wallet balance
-    if (wallet_id) {
+    if (type === 'transfer' && wallet_id && to_wallet_id) {
+      await query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [amount, wallet_id]);
+      await query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [amount, to_wallet_id]);
+    } else if (wallet_id) {
       const delta = type === 'income' ? amount : -amount;
       await query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [delta, wallet_id]);
     }
@@ -113,22 +120,43 @@ const updateTransaction = async (req, res, next) => {
     if (!existing.rows.length) return res.status(404).json({ success: false, message: 'Transaction not found' });
 
     const old = existing.rows[0];
-    const { category_id, amount, description, merchant_name, notes, date } = req.body;
+    const { wallet_id, category_id, amount, description, merchant_name, notes, date } = req.body;
 
     const result = await query(
       `UPDATE transactions
-       SET category_id=COALESCE($1, category_id), amount=COALESCE($2, amount),
-           description=COALESCE($3, description), merchant_name=COALESCE($4, merchant_name),
-           notes=COALESCE($5, notes), date=COALESCE($6, date)
-       WHERE id=$7 AND user_id=$8 RETURNING *`,
-      [category_id, amount, description, merchant_name, notes, date, req.params.id, req.user.id]
+       SET wallet_id=COALESCE($1, wallet_id), category_id=COALESCE($2, category_id), amount=COALESCE($3, amount),
+           description=COALESCE($4, description), merchant_name=COALESCE($5, merchant_name),
+           notes=COALESCE($6, notes), date=COALESCE($7, date)
+       WHERE id=$8 AND user_id=$9 RETURNING *`,
+      [wallet_id, category_id, amount, description, merchant_name, notes, date, req.params.id, req.user.id]
     );
 
-    // Adjust wallet balance if amount changed
-    if (amount && old.wallet_id && amount !== old.amount) {
-      const oldDelta = old.type === 'income' ? old.amount : -old.amount;
-      const newDelta = old.type === 'income' ? amount : -amount;
-      await query('UPDATE wallets SET balance = balance - $1 + $2 WHERE id = $3', [oldDelta, newDelta, old.wallet_id]);
+    // Adjust wallet balance if amount or wallet changed
+    if ((amount && amount !== old.amount) || (wallet_id && wallet_id !== old.wallet_id)) {
+      const newAmount = amount || old.amount;
+      const newWalletId = wallet_id || old.wallet_id;
+
+      if (old.type === 'transfer') {
+        // Revert old
+        if (old.wallet_id) await query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [old.amount, old.wallet_id]);
+        if (old.to_wallet_id) await query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [old.amount, old.to_wallet_id]);
+        
+        // Apply new
+        if (newWalletId) await query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [newAmount, newWalletId]);
+        if (old.to_wallet_id) await query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, old.to_wallet_id]);
+      } else {
+        // Revert old wallet
+        if (old.wallet_id) {
+          const revertDelta = old.type === 'income' ? -old.amount : old.amount;
+          await query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [revertDelta, old.wallet_id]);
+        }
+        
+        // Apply to new wallet
+        if (newWalletId) {
+          const applyDelta = old.type === 'income' ? newAmount : -newAmount;
+          await query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [applyDelta, newWalletId]);
+        }
+      }
     }
 
     return success(res, result.rows[0], 'Transaction updated');
@@ -234,7 +262,34 @@ const getSpendingByDay = async (req, res, next) => {
   }
 };
 
+const exportCsv = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT t.date, t.type, t.amount, c.name AS category_name, w.name AS wallet_name, t.description, t.merchant_name
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       LEFT JOIN wallets w ON w.id = t.wallet_id
+       WHERE t.user_id = $1
+       ORDER BY t.date DESC`,
+      [req.user.id]
+    );
+
+    const fields = ['Date', 'Type', 'Amount', 'Category', 'Wallet', 'Description', 'Merchant'];
+    let csv = fields.join(',') + '\n';
+    result.rows.forEach(row => {
+      const rowDate = row.date ? new Date(row.date).toISOString().split('T')[0] : '';
+      csv += `${rowDate},${row.type},${row.amount},"${row.category_name || ''}","${row.wallet_name || ''}","${row.description || ''}","${row.merchant_name || ''}"\n`;
+    });
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment('transactions.csv');
+    return res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getTransactions, getTransaction, createTransaction,
-  updateTransaction, deleteTransaction, getSummary, getCashFlow, getSpendingByDay,
+  updateTransaction, deleteTransaction, getSummary, getCashFlow, getSpendingByDay, exportCsv,
 };

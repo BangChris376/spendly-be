@@ -11,6 +11,7 @@ router.get('/', ctrl.getTransactions);
 router.get('/summary', ctrl.getSummary);
 router.get('/cash-flow', ctrl.getCashFlow);
 router.get('/spending-by-day', ctrl.getSpendingByDay);
+router.get('/export-csv', ctrl.exportCsv);
 router.get('/:id', ctrl.getTransaction);
 
 router.post('/', [

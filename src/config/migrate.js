@@ -129,6 +129,16 @@ const migrations = `
   CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
   CREATE INDEX IF NOT EXISTS idx_receipt_scans_user_id ON receipt_scans(user_id);
 
+  -- ALTER TABLES FOR NEW FEATURES
+  DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN reset_token VARCHAR(255);
+    ALTER TABLE users ADD COLUMN reset_token_expires TIMESTAMPTZ;
+  EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+  DO $$ BEGIN
+    ALTER TABLE transactions ADD COLUMN to_wallet_id UUID REFERENCES wallets(id) ON DELETE SET NULL;
+  EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
   -- AUTO UPDATE updated_at
   CREATE OR REPLACE FUNCTION update_updated_at()
   RETURNS TRIGGER AS $$

@@ -250,6 +250,7 @@ const getAnalysis = async (req, res, next) => {
         forecast = {
           next_week:       forecastResult.forecast,
           total_predicted: forecastResult.total_predicted,
+          categories:      AI_CATEGORIES,
           source:          'ai_model', // bukan simulasi
         };
       } else {
@@ -271,6 +272,7 @@ const getAnalysis = async (req, res, next) => {
       forecast: forecast || {
         next_week:       null,
         total_predicted: null,
+        categories:      AI_CATEGORIES,
         source:          'unavailable',
         error:           forecastError,
       },

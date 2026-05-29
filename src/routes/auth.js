@@ -5,6 +5,16 @@ const router = express.Router();
 const ctrl = require('../controllers/authController');
 const { authenticate } = require('../middlewares/auth');
 const { validate } = require('../middlewares/errorHandler');
+const upload = require('../middlewares/upload');
+
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail(),
+], validate, ctrl.forgotPassword);
+
+router.post('/reset-password', [
+  body('token').notEmpty(),
+  body('new_password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+], validate, ctrl.resetPassword);
 
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
@@ -21,7 +31,7 @@ router.post('/login', [
 router.post('/refresh', ctrl.refreshToken);
 router.post('/logout', ctrl.logout);
 router.get('/me', authenticate, ctrl.getMe);
-router.put('/me', authenticate, [
+router.put('/me', authenticate, upload.single('avatar'), [
   body('first_name').trim().notEmpty(),
   body('last_name').trim().notEmpty(),
 ], validate, ctrl.updateProfile);
