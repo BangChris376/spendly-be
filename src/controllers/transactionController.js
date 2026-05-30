@@ -48,7 +48,7 @@ const getTransactions = async (req, res, next) => {
        LEFT JOIN categories c ON c.id = t.category_id
        LEFT JOIN wallets w    ON w.id = t.wallet_id
        WHERE ${where}
-       ORDER BY ${sortCol} ${sortDir}
+       ORDER BY ${sortCol} ${sortDir}, t.created_at DESC
        LIMIT $${idx} OFFSET $${idx + 1}`,
       values
     );
@@ -106,6 +106,19 @@ const createTransaction = async (req, res, next) => {
     if (type === 'transfer' && !(await ownsWallet(client, to_wallet_id, req.user.id))) {
       await client.query('ROLLBACK');
       return failure(res, 'Destination wallet not found', 400);
+    }
+
+    // check sufficient balance for transfer or expense
+    if ((type === 'transfer' || type === 'expense') && wallet_id) {
+      const walletRes = await client.query(
+        `SELECT balance FROM wallets WHERE id = $1 FOR UPDATE`,
+        [wallet_id]
+      );
+      const balance = Number(walletRes.rows[0].balance);
+      if (balance < Number(amount)) {
+        await client.query('ROLLBACK');
+        return failure(res, 'Insufficient wallet balance', 400);
+      }
     }
 
     const inserted = await client.query(
@@ -167,6 +180,23 @@ const updateTransaction = async (req, res, next) => {
     }
 
     await client.query('BEGIN');
+
+    // check sufficient balance if amount increases or wallet changes (for expense/transfer)
+    if (old.type === 'expense' || old.type === 'transfer') {
+      const newAmount = amount !== undefined ? Number(amount) : Number(old.amount);
+      const effectiveWalletId = wallet_id || old.wallet_id;
+      const walletRes = await client.query(
+        `SELECT balance FROM wallets WHERE id = $1 FOR UPDATE`,
+        [effectiveWalletId]
+      );
+      const currentBalance = Number(walletRes.rows[0].balance);
+      // add back old deduction from same wallet, then check if new amount fits
+      const oldDeduction = (effectiveWalletId === old.wallet_id) ? Number(old.amount) : 0;
+      if (currentBalance + oldDeduction < newAmount) {
+        await client.query('ROLLBACK');
+        return failure(res, 'Insufficient wallet balance', 400);
+      }
+    }
 
     const updated = await client.query(
       `UPDATE transactions SET
@@ -359,24 +389,20 @@ const exportCsv = async (req, res, next) => {
     );
 
     const CRLF = '\r\n';
-    const headers = ['ID', 'Date', 'Type', 'Amount', 'Category', 'Category ID', 'Wallet', 'Wallet ID', 'To Wallet', 'To Wallet ID', 'Merchant', 'Description', 'Notes'];
+    const headers = ['ID', 'Date', 'Type', 'Amount', 'Category', 'Wallet', 'Merchant', 'Notes'];
     const lines = [headers.map(csvEscape).join(',')];
 
     for (const row of result.rows) {
       const date = row.date ? new Date(row.date).toISOString().split('T')[0] : '';
+      const category = row.type === 'transfer' ? 'Transfer' : (row.category_name || '');
       lines.push([
         csvEscape(row.id),
         csvEscape(date),
         csvEscape(row.type),
         csvEscape(row.amount),
-        csvEscape(row.category_name),
-        csvEscape(row.category_id),
+        csvEscape(category),
         csvEscape(row.wallet_name),
-        csvEscape(row.wallet_id),
-        csvEscape(row.to_wallet_name),
-        csvEscape(row.to_wallet_id),
         csvEscape(row.merchant_name),
-        csvEscape(row.description),
         csvEscape(row.notes),
       ].join(','));
     }
