@@ -168,10 +168,31 @@ const checkAIHealth = async () => {
   }
 };
 
+const getFinancialInsight = async (insightData) => {
+  try {
+    const res = await fetchWithTimeout(`${env.aiBaseUrl}/insight`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(insightData),
+    });
+    if (!res.ok) throw new Error(`insight api ${res.status}`);
+    const data = await res.json();
+    return {
+      success: true,
+      insight: data.insight || data.message || data.text || null,
+      insights: data.insights || [],
+    };
+  } catch (err) {
+    logError('insight', err);
+    return { success: false, insight: null, insights: [], error: err.message };
+  }
+};
+
 module.exports = {
   extractOCR,
   classifyTransaction,
   processReceipt,
   predictSpending,
   checkAIHealth,
+  getFinancialInsight,
 };

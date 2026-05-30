@@ -286,8 +286,9 @@ const getAnalysis = async (req, res, next) => {
 
     let forecast = null;
     let forecastError = null;
+    let weeklyHistory = [];
     try {
-      const weeklyHistory = await getWeeklyHistoryForAI(userId);
+      weeklyHistory = await getWeeklyHistoryForAI(userId);
       const result = await aiService.predictSpending(weeklyHistory);
       if (result.success) {
         forecast = {
@@ -305,6 +306,38 @@ const getAnalysis = async (req, res, next) => {
     }
 
     const insights = await generateInsights(userId);
+
+    // Fetch Gemini AI insight if forecast was successful
+    if (forecast && !forecastError) {
+      try {
+        const insightRes = await aiService.getFinancialInsight({
+          history: weeklyHistory,
+          forecast: forecast.next_week,
+          total_predicted: forecast.total_predicted,
+        });
+
+        if (insightRes.success) {
+          if (insightRes.insight) {
+            insights.unshift({
+              type: 'info',
+              title: 'Gemini AI Insight',
+              message: insightRes.insight,
+              source: 'gemini',
+            });
+          }
+          if (insightRes.insights && insightRes.insights.length > 0) {
+            insightRes.insights.forEach(item => insights.unshift({
+              type: item.type || 'info',
+              title: item.title || 'Gemini AI Insight',
+              message: item.message || item,
+              source: 'gemini',
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('[analysis] gemini insight error:', err.message);
+      }
+    }
 
     return success(res, {
       cash_flow: cashFlow.rows,
