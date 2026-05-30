@@ -1,30 +1,53 @@
 {
   "info": {
     "name": "Spendly API",
-    "description": "REST API untuk Spendly Financial Tracker\nBase URL: http://localhost:3000/api/v1\n\nCara pakai:\n1. Set variable 'base_url' dan 'token'\n2. Jalankan Register atau Login dulu\n3. Token otomatis tersimpan di variable 'token'",
+    "description": "REST API for Spendly Financial Tracker. Base URL: http://localhost:3000/api/v1\n\nQuick start:\n1. Edit the `base_url` collection variable if your server runs elsewhere.\n2. Run Auth > Login. The access token and refresh token are saved automatically.\n3. Run Wallets > Create Wallet and Categories > Get All Categories to populate the `wallet_id` and `category_id` variables, then any other request will work.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:3000/api/v1", "type": "string" },
-    { "key": "token",    "value": "",                             "type": "string" },
-    { "key": "refresh_token", "value": "",                        "type": "string" }
+    { "key": "base_url",       "value": "http://localhost:3000/api/v1", "type": "string" },
+    { "key": "token",          "value": "",                              "type": "string" },
+    { "key": "refresh_token",  "value": "",                              "type": "string" },
+    { "key": "reset_token",    "value": "",                              "type": "string" },
+    { "key": "transaction_id", "value": "",                              "type": "string" },
+    { "key": "wallet_id",      "value": "",                              "type": "string" },
+    { "key": "category_id",    "value": "",                              "type": "string" },
+    { "key": "budget_id",      "value": "",                              "type": "string" },
+    { "key": "scan_id",        "value": "",                              "type": "string" }
   ],
   "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Server Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "http://localhost:3000/health"
+          }
+        }
+      ]
+    },
 
     {
-      "name": "🔐 Auth",
+      "name": "Auth",
       "item": [
         {
           "name": "Register",
-          "event": [{ "listen": "test", "script": { "exec": [
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
             "if (pm.response.code === 201) {",
-            "  const d = pm.response.json().data;",
-            "  pm.collectionVariables.set('token', d.accessToken);",
-            "  pm.collectionVariables.set('refresh_token', d.refreshToken);",
-            "  pm.test('Register berhasil', () => pm.expect(d.accessToken).to.be.a('string'));",
+            "  const data = pm.response.json().data;",
+            "  pm.collectionVariables.set('token', data.accessToken);",
+            "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
             "}"
-          ], "type": "text/javascript" }}],
+          ]}}],
           "request": {
+            "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/register",
@@ -36,15 +59,15 @@
         },
         {
           "name": "Login",
-          "event": [{ "listen": "test", "script": { "exec": [
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
             "if (pm.response.code === 200) {",
-            "  const d = pm.response.json().data;",
-            "  pm.collectionVariables.set('token', d.accessToken);",
-            "  pm.collectionVariables.set('refresh_token', d.refreshToken);",
-            "  pm.test('Login berhasil', () => pm.expect(d.accessToken).to.be.a('string'));",
+            "  const data = pm.response.json().data;",
+            "  pm.collectionVariables.set('token', data.accessToken);",
+            "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
             "}"
-          ], "type": "text/javascript" }}],
+          ]}}],
           "request": {
+            "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/login",
@@ -56,7 +79,15 @@
         },
         {
           "name": "Refresh Token",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const data = pm.response.json().data;",
+            "  pm.collectionVariables.set('token', data.accessToken);",
+            "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
+            "}"
+          ]}}],
           "request": {
+            "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/refresh",
@@ -69,6 +100,7 @@
         {
           "name": "Logout",
           "request": {
+            "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/logout",
@@ -79,10 +111,42 @@
           }
         },
         {
+          "name": "Forgot Password",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const data = pm.response.json().data;",
+            "  if (data && data.reset_token) pm.collectionVariables.set('reset_token', data.reset_token);",
+            "}"
+          ]}}],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alex.graham@spendly.io\"\n}"
+            },
+            "description": "Returns a reset token only when NODE_ENV=development."
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"newpassword123\"\n}"
+            }
+          }
+        },
+        {
           "name": "Get My Profile",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/auth/me"
           }
         },
@@ -90,10 +154,7 @@
           "name": "Update Profile",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/me",
             "body": {
               "mode": "raw",
@@ -105,10 +166,7 @@
           "name": "Update Password",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/me/password",
             "body": {
               "mode": "raw",
@@ -120,10 +178,7 @@
           "name": "Update Preferences",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/me/preferences",
             "body": {
               "mode": "raw",
@@ -135,29 +190,29 @@
     },
 
     {
-      "name": "💸 Transactions",
+      "name": "Transactions",
       "item": [
         {
-          "name": "Get All Transactions",
+          "name": "List Transactions",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{base_url}}/transactions?page=1&limit=10&type=expense&sort=date&order=DESC",
               "host": ["{{base_url}}"],
               "path": ["transactions"],
               "query": [
-                { "key": "page",     "value": "1"       },
-                { "key": "limit",    "value": "10"      },
-                { "key": "type",     "value": "expense", "description": "income | expense | transfer" },
-                { "key": "sort",     "value": "date"    },
-                { "key": "order",    "value": "DESC"    },
-                { "key": "date_from","value": "",        "disabled": true },
-                { "key": "date_to",  "value": "",        "disabled": true },
-                { "key": "category_id", "value": "",    "disabled": true },
-                { "key": "search",   "value": "",        "disabled": true },
-                { "key": "amount_min","value": "",       "disabled": true },
-                { "key": "amount_max","value": "",       "disabled": true }
+                { "key": "page",        "value": "1" },
+                { "key": "limit",       "value": "10" },
+                { "key": "type",        "value": "expense", "description": "income | expense | transfer" },
+                { "key": "sort",        "value": "date",    "description": "date | amount | created_at" },
+                { "key": "order",       "value": "DESC",    "description": "ASC | DESC" },
+                { "key": "date_from",   "value": "",        "disabled": true },
+                { "key": "date_to",     "value": "",        "disabled": true },
+                { "key": "category_id", "value": "{{category_id}}", "disabled": true },
+                { "key": "wallet_id",   "value": "{{wallet_id}}",   "disabled": true },
+                { "key": "search",      "value": "",        "disabled": true },
+                { "key": "amount_min",  "value": "",        "disabled": true },
+                { "key": "amount_max",  "value": "",        "disabled": true }
               ]
             }
           }
@@ -166,23 +221,27 @@
           "name": "Get Transaction by ID",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/transactions/:id",
-            "variable": [{ "key": "id", "value": "uuid-transaksi-disini" }]
+            "url": {
+              "raw": "{{base_url}}/transactions/{{transaction_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["transactions", "{{transaction_id}}"]
+            }
           }
         },
         {
           "name": "Create Transaction (Expense)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) {",
+            "  pm.collectionVariables.set('transaction_id', pm.response.json().data.id);",
+            "}"
+          ]}}],
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/transactions",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 85000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"uuid-kategori\",\n  \"wallet_id\": \"uuid-wallet\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"Belanja harian\"\n}"
+              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 85000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"Daily groceries\"\n}"
             }
           }
         },
@@ -190,14 +249,11 @@
           "name": "Create Transaction (Income)",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/transactions",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"income\",\n  \"amount\": 15000000,\n  \"merchant_name\": \"Salary Deposit\",\n  \"category_id\": \"uuid-kategori-income\",\n  \"wallet_id\": \"uuid-wallet\",\n  \"date\": \"2026-05-14\"\n}"
+              "raw": "{\n  \"type\": \"income\",\n  \"amount\": 15000000,\n  \"merchant_name\": \"Salary Deposit\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\"\n}"
             }
           }
         },
@@ -205,15 +261,15 @@
           "name": "Update Transaction",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
-            "url": "{{base_url}}/transactions/:id",
-            "variable": [{ "key": "id", "value": "uuid-transaksi" }],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/transactions/{{transaction_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["transactions", "{{transaction_id}}"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 90000,\n  \"notes\": \"Update catatan\"\n}"
+              "raw": "{\n  \"amount\": 90000,\n  \"notes\": \"Updated note\"\n}"
             }
           }
         },
@@ -221,20 +277,21 @@
           "name": "Delete Transaction",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/transactions/:id",
-            "variable": [{ "key": "id", "value": "uuid-transaksi" }]
+            "url": {
+              "raw": "{{base_url}}/transactions/{{transaction_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["transactions", "{{transaction_id}}"]
+            }
           }
         },
         {
-          "name": "Get Summary (bulan ini)",
+          "name": "Get Summary",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{base_url}}/transactions/summary?period=month",
               "host": ["{{base_url}}"],
-              "path": ["transactions","summary"],
+              "path": ["transactions", "summary"],
               "query": [
                 { "key": "period", "value": "month", "description": "month | year" },
                 { "key": "year",   "value": "2026",  "disabled": true },
@@ -244,32 +301,49 @@
           }
         },
         {
-          "name": "Get Cash Flow (6 bulan)",
+          "name": "Get Cash Flow",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/transactions/cash-flow?months=6"
+            "url": {
+              "raw": "{{base_url}}/transactions/cash-flow?months=6",
+              "host": ["{{base_url}}"],
+              "path": ["transactions", "cash-flow"],
+              "query": [{ "key": "months", "value": "6" }]
+            }
           }
         },
         {
           "name": "Get Spending By Day",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/transactions/spending-by-day"
+          }
+        },
+        {
+          "name": "Export Transactions to CSV",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/transactions/export-csv"
           }
         }
       ]
     },
 
     {
-      "name": "📂 Categories",
+      "name": "Categories",
       "item": [
         {
-          "name": "Get All Categories",
+          "name": "List Categories",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const list = pm.response.json().data || [];",
+            "  if (list.length && !pm.collectionVariables.get('category_id')) {",
+            "    pm.collectionVariables.set('category_id', list[0].id);",
+            "  }",
+            "}"
+          ]}}],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{base_url}}/categories?type=expense",
               "host": ["{{base_url}}"],
@@ -284,11 +358,10 @@
           "name": "Get Category Stats",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{base_url}}/categories/stats?month=5&year=2026",
               "host": ["{{base_url}}"],
-              "path": ["categories","stats"],
+              "path": ["categories", "stats"],
               "query": [
                 { "key": "month", "value": "5"    },
                 { "key": "year",  "value": "2026" }
@@ -300,23 +373,27 @@
           "name": "Get Category by ID",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/categories/:id",
-            "variable": [{ "key": "id", "value": "uuid-kategori" }]
+            "url": {
+              "raw": "{{base_url}}/categories/{{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["categories", "{{category_id}}"]
+            }
           }
         },
         {
           "name": "Create Category",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) {",
+            "  pm.collectionVariables.set('category_id', pm.response.json().data.id);",
+            "}"
+          ]}}],
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/categories",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Transport\",\n  \"icon\": \"🚗\",\n  \"color\": \"#06B6D4\",\n  \"type\": \"expense\"\n}"
+              "raw": "{\n  \"name\": \"Transport\",\n  \"icon\": \"transport\",\n  \"color\": \"#06B6D4\",\n  \"type\": \"expense\"\n}"
             }
           }
         },
@@ -324,15 +401,15 @@
           "name": "Update Category",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
-            "url": "{{base_url}}/categories/:id",
-            "variable": [{ "key": "id", "value": "uuid-kategori" }],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/categories/{{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["categories", "{{category_id}}"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Transport\",\n  \"icon\": \"🚌\",\n  \"color\": \"#0EA5E9\"\n}"
+              "raw": "{\n  \"name\": \"Transportation\",\n  \"color\": \"#0EA5E9\"\n}"
             }
           }
         },
@@ -340,22 +417,31 @@
           "name": "Delete Category",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/categories/:id",
-            "variable": [{ "key": "id", "value": "uuid-kategori" }]
+            "url": {
+              "raw": "{{base_url}}/categories/{{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["categories", "{{category_id}}"]
+            }
           }
         }
       ]
     },
 
     {
-      "name": "💳 Wallets",
+      "name": "Wallets",
       "item": [
         {
-          "name": "Get All Wallets",
+          "name": "List Wallets",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const list = pm.response.json().data || [];",
+            "  if (list.length && !pm.collectionVariables.get('wallet_id')) {",
+            "    pm.collectionVariables.set('wallet_id', list[0].id);",
+            "  }",
+            "}"
+          ]}}],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/wallets"
           }
         },
@@ -363,7 +449,6 @@
           "name": "Get Total Balance",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/wallets/balance"
           }
         },
@@ -371,19 +456,23 @@
           "name": "Get Wallet by ID",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/wallets/:id",
-            "variable": [{ "key": "id", "value": "uuid-wallet" }]
+            "url": {
+              "raw": "{{base_url}}/wallets/{{wallet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["wallets", "{{wallet_id}}"]
+            }
           }
         },
         {
           "name": "Create Wallet",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) {",
+            "  pm.collectionVariables.set('wallet_id', pm.response.json().data.id);",
+            "}"
+          ]}}],
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/wallets",
             "body": {
               "mode": "raw",
@@ -395,15 +484,15 @@
           "name": "Update Wallet",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
-            "url": "{{base_url}}/wallets/:id",
-            "variable": [{ "key": "id", "value": "uuid-wallet" }],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/wallets/{{wallet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["wallets", "{{wallet_id}}"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"BCA Utama\",\n  \"is_default\": true\n}"
+              "raw": "{\n  \"name\": \"BCA Primary\",\n  \"is_default\": true\n}"
             }
           }
         },
@@ -411,22 +500,31 @@
           "name": "Delete Wallet",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/wallets/:id",
-            "variable": [{ "key": "id", "value": "uuid-wallet" }]
+            "url": {
+              "raw": "{{base_url}}/wallets/{{wallet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["wallets", "{{wallet_id}}"]
+            }
           }
         }
       ]
     },
 
     {
-      "name": "🎯 Budgets",
+      "name": "Budgets",
       "item": [
         {
-          "name": "Get All Budgets",
+          "name": "List Budgets",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const list = pm.response.json().data || [];",
+            "  if (list.length && !pm.collectionVariables.get('budget_id')) {",
+            "    pm.collectionVariables.set('budget_id', list[0].id);",
+            "  }",
+            "}"
+          ]}}],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/budgets"
           }
         },
@@ -434,22 +532,34 @@
           "name": "Get Budget Summary",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/budgets/summary"
           }
         },
         {
+          "name": "Get Budget by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/budgets/{{budget_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["budgets", "{{budget_id}}"]
+            }
+          }
+        },
+        {
           "name": "Create Budget",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) {",
+            "  pm.collectionVariables.set('budget_id', pm.response.json().data.id);",
+            "}"
+          ]}}],
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/budgets",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"category_id\": \"uuid-kategori-groceries\",\n  \"amount\": 2000000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-05-01\",\n  \"end_date\": \"2026-05-31\"\n}"
+              "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"category_id\": \"{{category_id}}\",\n  \"amount\": 2000000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-05-01\",\n  \"end_date\": \"2026-05-31\"\n}"
             }
           }
         },
@@ -457,12 +567,12 @@
           "name": "Update Budget",
           "request": {
             "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
-            "url": "{{base_url}}/budgets/:id",
-            "variable": [{ "key": "id", "value": "uuid-budget" }],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/budgets/{{budget_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["budgets", "{{budget_id}}"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"amount\": 2500000\n}"
@@ -473,22 +583,28 @@
           "name": "Delete Budget",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/budgets/:id",
-            "variable": [{ "key": "id", "value": "uuid-budget" }]
+            "url": {
+              "raw": "{{base_url}}/budgets/{{budget_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["budgets", "{{budget_id}}"]
+            }
           }
         }
       ]
     },
 
     {
-      "name": "🔍 Scan Receipt (OCR)",
+      "name": "Scans",
       "item": [
         {
-          "name": "Upload Struk",
+          "name": "Upload Receipt",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 202) {",
+            "  pm.collectionVariables.set('scan_id', pm.response.json().data.scan_id);",
+            "}"
+          ]}}],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/scans/upload",
             "body": {
               "mode": "formdata",
@@ -497,43 +613,45 @@
                   "key": "receipt",
                   "type": "file",
                   "src": "",
-                  "description": "File gambar struk (JPG/PNG/PDF, max 5MB)"
+                  "description": "JPG, PNG or PDF, max 5MB"
                 }
               ]
+            },
+            "description": "Returns 202 with scan_id and status=processing. Poll Get Scan Result until status is completed or failed."
+          }
+        },
+        {
+          "name": "Get Scan Result",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/scans/{{scan_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["scans", "{{scan_id}}"]
             }
           }
         },
         {
-          "name": "Get Scan Result (polling)",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/scans/:id",
-            "variable": [{ "key": "id", "value": "uuid-scan" }],
-            "description": "Poll tiap 2 detik sampai status = 'completed' atau 'failed'"
-          }
-        },
-        {
-          "name": "Confirm Scan → Simpan Transaksi",
+          "name": "Confirm Scan",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type",  "value": "application/json" }
-            ],
-            "url": "{{base_url}}/scans/:id/confirm",
-            "variable": [{ "key": "id", "value": "uuid-scan" }],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/scans/{{scan_id}}/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["scans", "{{scan_id}}", "confirm"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"merchant_name\": \"Indomaret\",\n  \"total_amount\": 88000,\n  \"category_id\": \"uuid-kategori\",\n  \"wallet_id\": \"uuid-wallet\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"Scan dari struk\"\n}"
-            }
+              "raw": "{\n  \"merchant_name\": \"Indomaret\",\n  \"total_amount\": 88000,\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"From receipt scan\"\n}"
+            },
+            "description": "Saves the scan result as a transaction. All fields are optional and fall back to AI suggestions."
           }
         },
         {
-          "name": "Get Scan History",
+          "name": "List Scan History",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/scans"
           }
         },
@@ -541,76 +659,58 @@
           "name": "Delete Scan",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/scans/:id",
-            "variable": [{ "key": "id", "value": "uuid-scan" }]
+            "url": {
+              "raw": "{{base_url}}/scans/{{scan_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["scans", "{{scan_id}}"]
+            }
           }
         }
       ]
     },
 
     {
-      "name": "📊 Analysis & AI",
+      "name": "Analysis",
       "item": [
         {
           "name": "Dashboard Overview",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/analysis/dashboard",
-            "description": "Data lengkap untuk halaman Home:\n- balance (total, income, expense, % change)\n- recent_transactions (5 terakhir)\n- budgets (tracking)\n- wealth_growth (7 bulan)"
+            "description": "Home page payload: balance summary, recent transactions, budget tracking, 7-month wealth growth."
           }
         },
         {
-          "name": "AI Insights + Cash Flow",
+          "name": "Insights",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/analysis/insights",
-            "description": "Data untuk halaman Analysis:\n- cash_flow (6 bulan)\n- heatmap (per hari)\n- spending_clusters (per kategori AI)\n- recurring_patterns\n- forecast (dari FastAPI LSTM)\n- insights (AI warnings & tips)"
+            "description": "Analysis page payload: 6-month cash flow, weekday heatmap, AI category clusters, recurring merchants, LSTM forecast, rule-based insights."
           }
         },
         {
-          "name": "Spending Forecast (LSTM)",
+          "name": "Spending Forecast",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/analysis/forecast",
-            "description": "Prediksi pengeluaran minggu depan per 8 kategori AI"
+            "description": "Next-week spending prediction across the 8 AI categories. Returns 503 when the AI service is unavailable."
           }
         },
         {
           "name": "Unusual Spending",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{base_url}}/analysis/unusual-spending"
           }
         },
         {
-          "name": "AI Service Health Check",
+          "name": "AI Service Health",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{base_url}}/analysis/ai-health",
-            "description": "Cek apakah FastAPI tim AI sedang aktif"
-          }
-        }
-      ]
-    },
-
-    {
-      "name": "🏥 Health Check",
-      "item": [
-        {
-          "name": "Server Health",
-          "request": {
-            "method": "GET",
-            "url": "http://localhost:3000/health"
+            "url": "{{base_url}}/analysis/ai-health"
           }
         }
       ]
     }
-
   ]
 }

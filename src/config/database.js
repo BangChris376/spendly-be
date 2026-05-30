@@ -1,9 +1,8 @@
 const { Pool } = require('pg');
-require('dotenv').config();
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT) || 5432,
+  port: parseInt(process.env.DB_PORT, 10) || 5432,
   database: process.env.DB_NAME || 'spendly_db',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
@@ -13,18 +12,16 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('idle pg client error:', err.message);
 });
 
 const query = async (text, params) => {
   const start = Date.now();
-  const res = await pool.query(text, params);
-  const duration = Date.now() - start;
+  const result = await pool.query(text, params);
   if (process.env.NODE_ENV === 'development') {
-    console.log('query', { text: text.substring(0, 80), duration: `${duration}ms`, rows: res.rowCount });
+    console.log('db', { sql: text.substring(0, 80), ms: Date.now() - start, rows: result.rowCount });
   }
-  return res;
+  return result;
 };
 
 const getClient = () => pool.connect();

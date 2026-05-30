@@ -1,55 +1,47 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { query } = require('../config/database');
-const { success } = require('../utils/response');
-
-const generateTokens = (userId) => {
-  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  });
-  const refreshToken = uuidv4();
-  return { accessToken, refreshToken };
-};
+const { query, getClient } = require('../config/database');
+const { success, failure } = require('../utils/response');
+const tokenService = require('../services/tokenService');
 
 const register = async (req, res, next) => {
+  const client = await getClient();
   try {
     const { email, password, first_name, last_name } = req.body;
+    const normalizedEmail = email.toLowerCase();
 
-    const exists = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
-    if (exists.rows.length) {
-      return res.status(409).json({ success: false, message: 'Email already registered' });
-    }
+    const exists = await client.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
+    if (exists.rows.length) return failure(res, 'Email already registered', 409);
+
+    await client.query('BEGIN');
 
     const hash = await bcrypt.hash(password, 12);
-    const userRes = await query(
+    const userRes = await client.query(
       `INSERT INTO users (email, password_hash, first_name, last_name)
-       VALUES ($1, $2, $3, $4) RETURNING id, email, first_name, last_name, is_premium, created_at`,
-      [email.toLowerCase(), hash, first_name, last_name]
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, first_name, last_name, is_premium, created_at`,
+      [normalizedEmail, hash, first_name, last_name]
     );
     const user = userRes.rows[0];
 
-    // Create default preferences
-    await query('INSERT INTO user_preferences (user_id) VALUES ($1)', [user.id]);
-
-    // Create default cash wallet
-    await query(
+    await client.query(`INSERT INTO user_preferences (user_id) VALUES ($1)`, [user.id]);
+    await client.query(
       `INSERT INTO wallets (user_id, name, type, balance, is_default)
        VALUES ($1, 'Cash', 'cash', 0, true)`,
       [user.id]
     );
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await client.query('COMMIT');
 
-    await query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, refreshToken, expiresAt]
-    );
+    const { accessToken, refreshToken } = tokenService.generateTokens(user.id);
+    await tokenService.persistRefreshToken(user.id, refreshToken);
 
     return success(res, { user, accessToken, refreshToken }, 'Registration successful', 201);
   } catch (err) {
-    next(err);
+    await client.query('ROLLBACK').catch(() => {});
+    return next(err);
+  } finally {
+    client.release();
   }
 };
 
@@ -58,82 +50,59 @@ const login = async (req, res, next) => {
     const { email, password } = req.body;
 
     const result = await query(
-      'SELECT id, email, password_hash, first_name, last_name, is_premium, monthly_limit, avatar_url FROM users WHERE email = $1',
+      `SELECT id, email, password_hash, first_name, last_name, is_premium, monthly_limit, avatar_url
+       FROM users WHERE email = $1`,
       [email.toLowerCase()]
     );
-
-    if (!result.rows.length) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
+    if (!result.rows.length) return failure(res, 'Invalid credentials', 401);
 
     const user = result.rows[0];
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
+    const matched = await bcrypt.compare(password, user.password_hash);
+    if (!matched) return failure(res, 'Invalid credentials', 401);
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, refreshToken, expiresAt]
-    );
+    const { accessToken, refreshToken } = tokenService.generateTokens(user.id);
+    await tokenService.persistRefreshToken(user.id, refreshToken);
 
     const { password_hash, ...safeUser } = user;
     return success(res, { user: safeUser, accessToken, refreshToken }, 'Login successful');
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const refreshToken = async (req, res, next) => {
   try {
     const { refresh_token } = req.body;
-    if (!refresh_token) {
-      return res.status(400).json({ success: false, message: 'Refresh token required' });
-    }
+    if (!refresh_token) return failure(res, 'Refresh token required', 400);
 
-    const result = await query(
-      'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
-      [refresh_token]
-    );
-    if (!result.rows.length) {
-      return res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
-    }
+    const userId = await tokenService.consumeRefreshToken(refresh_token);
+    if (!userId) return failure(res, 'Invalid or expired refresh token', 401);
 
-    const { user_id } = result.rows[0];
-    await query('DELETE FROM refresh_tokens WHERE token = $1', [refresh_token]);
+    const tokens = tokenService.generateTokens(userId);
+    await tokenService.persistRefreshToken(userId, tokens.refreshToken);
 
-    const { accessToken, refreshToken: newRefresh } = generateTokens(user_id);
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user_id, newRefresh, expiresAt]
-    );
-
-    return success(res, { accessToken, refreshToken: newRefresh }, 'Token refreshed');
+    return success(res, { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }, 'Token refreshed');
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const logout = async (req, res, next) => {
   try {
-    const { refresh_token } = req.body;
-    if (refresh_token) {
-      await query('DELETE FROM refresh_tokens WHERE token = $1', [refresh_token]);
-    }
+    await tokenService.revokeRefreshToken(req.body.refresh_token);
     return success(res, null, 'Logged out successfully');
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const getMe = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT u.id, u.email, u.first_name, u.last_name, u.avatar_url, u.is_premium, u.monthly_limit, u.created_at,
-              p.push_notifications, p.email_summaries, p.security_alerts, p.spending_alerts, p.dark_mode, p.currency
+      `SELECT u.id, u.email, u.first_name, u.last_name, u.avatar_url,
+              u.is_premium, u.monthly_limit, u.created_at,
+              p.push_notifications, p.email_summaries, p.security_alerts,
+              p.spending_alerts, p.spending_alert_pct, p.dark_mode, p.currency
        FROM users u
        LEFT JOIN user_preferences p ON p.user_id = u.id
        WHERE u.id = $1`,
@@ -141,119 +110,138 @@ const getMe = async (req, res, next) => {
     );
     return success(res, result.rows[0]);
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const updateProfile = async (req, res, next) => {
   try {
     const { first_name, last_name, monthly_limit } = req.body;
-    let avatar_url = req.body.avatar_url;
-    if (req.file) {
-      avatar_url = `/uploads/${req.file.filename}`;
-    }
+    const avatar_url = req.file ? `/uploads/${req.file.filename}` : req.body.avatar_url;
 
     const result = await query(
-      `UPDATE users SET first_name=$1, last_name=$2, monthly_limit=COALESCE($3, monthly_limit), avatar_url=COALESCE($4, avatar_url)
-       WHERE id=$5 RETURNING id, email, first_name, last_name, is_premium, monthly_limit, avatar_url`,
+      `UPDATE users SET
+         first_name    = COALESCE($1, first_name),
+         last_name     = COALESCE($2, last_name),
+         monthly_limit = COALESCE($3, monthly_limit),
+         avatar_url    = COALESCE($4, avatar_url)
+       WHERE id = $5
+       RETURNING id, email, first_name, last_name, is_premium, monthly_limit, avatar_url`,
       [first_name, last_name, monthly_limit, avatar_url, req.user.id]
     );
     return success(res, result.rows[0], 'Profile updated');
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const updatePassword = async (req, res, next) => {
   try {
     const { current_password, new_password } = req.body;
+
     const result = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
-    const isMatch = await bcrypt.compare(current_password, result.rows[0].password_hash);
-    if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
-    }
+    const matched = await bcrypt.compare(current_password, result.rows[0].password_hash);
+    if (!matched) return failure(res, 'Current password is incorrect', 400);
+
     const hash = await bcrypt.hash(new_password, 12);
-    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, req.user.id]);
-    await query('DELETE FROM refresh_tokens WHERE user_id=$1', [req.user.id]);
+    await query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hash, req.user.id]);
+    await tokenService.revokeAllForUser(req.user.id);
+
     return success(res, null, 'Password updated. Please login again.');
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
+const PREF_FIELDS = [
+  'push_notifications', 'email_summaries', 'security_alerts',
+  'spending_alerts', 'spending_alert_pct', 'dark_mode', 'currency',
+];
+
 const updatePreferences = async (req, res, next) => {
   try {
-    const fields = ['push_notifications','email_summaries','security_alerts','spending_alerts','dark_mode','currency'];
-    const updates = [];
+    const sets = [];
     const values = [];
     let idx = 1;
-    for (const f of fields) {
-      if (req.body[f] !== undefined) {
-        updates.push(`${f}=$${idx++}`);
-        values.push(req.body[f]);
+
+    for (const field of PREF_FIELDS) {
+      if (req.body[field] !== undefined) {
+        sets.push(`${field} = $${idx++}`);
+        values.push(req.body[field]);
       }
     }
-    if (!updates.length) return res.status(400).json({ success: false, message: 'No fields to update' });
+    if (!sets.length) return failure(res, 'No fields to update', 400);
+
     values.push(req.user.id);
     const result = await query(
-      `UPDATE user_preferences SET ${updates.join(',')} WHERE user_id=$${idx} RETURNING *`,
+      `UPDATE user_preferences SET ${sets.join(', ')} WHERE user_id = $${idx} RETURNING *`,
       values
     );
     return success(res, result.rows[0], 'Preferences updated');
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const userRes = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
-    if (!userRes.rows.length) {
-      return success(res, null, 'If that email is registered, we have sent a reset link.');
-    }
+    const result = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+
+    // generic response to avoid email enumeration
+    const genericMessage = 'If that email is registered, we have sent a reset link.';
+    if (!result.rows.length) return success(res, null, genericMessage);
 
     const resetToken = uuidv4();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await query(
-      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
-      [resetToken, expiresAt, userRes.rows[0].id]
+      `UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3`,
+      [resetToken, expiresAt, result.rows[0].id]
     );
 
-    console.log(`[Email Mock] Password reset link for ${email}: /reset-password?token=${resetToken}`);
-    
-    return success(res, { reset_token: resetToken }, 'If that email is registered, we have sent a reset link.');
+    console.log(`[email mock] reset link for ${email}: /reset-password?token=${resetToken}`);
+
+    // only expose the token in development for easier testing
+    const payload = process.env.NODE_ENV === 'development' ? { reset_token: resetToken } : null;
+    return success(res, payload, genericMessage);
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const resetPassword = async (req, res, next) => {
   try {
     const { token, new_password } = req.body;
-    
-    const userRes = await query(
-      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+    const result = await query(
+      `SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()`,
       [token]
     );
+    if (!result.rows.length) return failure(res, 'Invalid or expired reset token', 400);
 
-    if (!userRes.rows.length) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
-    }
-
+    const userId = result.rows[0].id;
     const hash = await bcrypt.hash(new_password, 12);
     await query(
-      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
-      [hash, userRes.rows[0].id]
+      `UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL
+       WHERE id = $2`,
+      [hash, userId]
     );
-    
-    await query('DELETE FROM refresh_tokens WHERE user_id = $1', [userRes.rows[0].id]);
+    await tokenService.revokeAllForUser(userId);
 
     return success(res, null, 'Password has been reset successfully.');
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
-module.exports = { register, login, refreshToken, logout, getMe, updateProfile, updatePassword, updatePreferences, forgotPassword, resetPassword };
+module.exports = {
+  register,
+  login,
+  refreshToken,
+  logout,
+  getMe,
+  updateProfile,
+  updatePassword,
+  updatePreferences,
+  forgotPassword,
+  resetPassword,
+};

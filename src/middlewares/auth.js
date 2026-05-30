@@ -3,16 +3,17 @@ const { query } = require('../config/database');
 
 const authenticate = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, message: 'Access token required' });
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = header.slice(7);
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const result = await query(
-      'SELECT id, email, first_name, last_name, is_premium, monthly_limit FROM users WHERE id = $1',
+      `SELECT id, email, first_name, last_name, is_premium, monthly_limit
+       FROM users WHERE id = $1`,
       [decoded.userId]
     );
 
@@ -21,7 +22,7 @@ const authenticate = async (req, res, next) => {
     }
 
     req.user = result.rows[0];
-    next();
+    return next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({ success: false, message: 'Token expired' });
