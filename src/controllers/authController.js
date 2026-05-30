@@ -117,7 +117,7 @@ const getMe = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const { first_name, last_name, monthly_limit } = req.body;
-    const avatar_url = req.file ? `/uploads/${req.file.filename}` : req.body.avatar_url;
+    const avatar_url = req.file ? `/uploads/${req.file.filename}` : undefined;
 
     const result = await query(
       `UPDATE users SET
@@ -127,9 +127,25 @@ const updateProfile = async (req, res, next) => {
          avatar_url    = COALESCE($4, avatar_url)
        WHERE id = $5
        RETURNING id, email, first_name, last_name, is_premium, monthly_limit, avatar_url`,
-      [first_name, last_name, monthly_limit, avatar_url, req.user.id]
+      [first_name || null, last_name || null, monthly_limit || null, avatar_url || null, req.user.id]
     );
     return success(res, result.rows[0], 'Profile updated');
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// dedicated avatar upload — accepts multipart/form-data with field "avatar"
+const updateAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) return failure(res, 'Avatar file is required', 400);
+    const avatar_url = `/uploads/${req.file.filename}`;
+    const result = await query(
+      `UPDATE users SET avatar_url = $1 WHERE id = $2
+       RETURNING id, email, first_name, last_name, is_premium, monthly_limit, avatar_url`,
+      [avatar_url, req.user.id]
+    );
+    return success(res, result.rows[0], 'Avatar updated');
   } catch (err) {
     return next(err);
   }
@@ -240,6 +256,7 @@ module.exports = {
   logout,
   getMe,
   updateProfile,
+  updateAvatar,
   updatePassword,
   updatePreferences,
   forgotPassword,

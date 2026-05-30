@@ -22,12 +22,26 @@ router.post(
   ctrl.createWallet
 );
 
+router.post(
+  '/transfer',
+  [
+    body('from_wallet_id').isUUID(),
+    body('to_wallet_id').isUUID(),
+    body('amount').isFloat({ min: 1 }),
+    body('date').optional().isISO8601(),
+    body('notes').optional().isString(),
+  ],
+  validate,
+  ctrl.transferBetweenWallets
+);
+
 router.put(
   '/:id',
   [
     param('id').isUUID(),
     body('name').optional().trim().notEmpty(),
     body('is_default').optional().isBoolean(),
+    body('balance').optional().isFloat({ min: 0 }),
   ],
   validate,
   ctrl.updateWallet

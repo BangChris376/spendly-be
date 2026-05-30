@@ -62,7 +62,7 @@ const getDashboardOverview = async (req, res, next) => {
     const prevM = m === 1 ? 12 : m - 1;
     const prevY = m === 1 ? y - 1 : y;
 
-    const [summaryRes, prevRes, walletRes, recentRes, budgetRes, growthRes] = await Promise.all([
+    const [summaryRes, prevRes, walletRes, recentRes, budgetRes, growthRes, categoryRes] = await Promise.all([
       query(
         `SELECT
            COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0) AS income,
@@ -82,9 +82,11 @@ const getDashboardOverview = async (req, res, next) => {
       ),
       query(`SELECT COALESCE(SUM(balance), 0) AS total_balance FROM wallets WHERE user_id=$1`, [userId]),
       query(
-        `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color
+        `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
+                w.name AS wallet_name, w.type AS wallet_type
          FROM transactions t
          LEFT JOIN categories c ON c.id = t.category_id
+         LEFT JOIN wallets w    ON w.id = t.wallet_id
          WHERE t.user_id = $1
          ORDER BY t.date DESC, t.created_at DESC
          LIMIT 5`,
@@ -118,6 +120,14 @@ const getDashboardOverview = async (req, res, next) => {
          ORDER BY period ASC`,
         [userId]
       ),
+      // all categories for the user (system + custom) — used by FE forms
+      query(
+        `SELECT id, name, icon, color, type, is_system
+         FROM categories
+         WHERE user_id = $1 OR is_system = true
+         ORDER BY is_system DESC, name ASC`,
+        [userId]
+      ),
     ]);
 
     const cur = summaryRes.rows[0];
@@ -135,6 +145,7 @@ const getDashboardOverview = async (req, res, next) => {
       recent_transactions: recentRes.rows,
       budgets: budgetRes.rows,
       wealth_growth: growthRes.rows,
+      categories: categoryRes.rows,
     });
   } catch (err) {
     return next(err);

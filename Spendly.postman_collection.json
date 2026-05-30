@@ -154,12 +154,35 @@
           "name": "Update Profile",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{base_url}}/auth/me",
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Alex\",\n  \"last_name\": \"Graham\",\n  \"monthly_limit\": 25000000\n}"
-            }
+              "mode": "formdata",
+              "formdata": [
+                { "key": "first_name",    "value": "Alex",     "type": "text" },
+                { "key": "last_name",     "value": "Graham",   "type": "text" },
+                { "key": "monthly_limit", "value": "25000000", "type": "text" }
+              ]
+            },
+            "description": "Send as multipart/form-data. Text fields only. To update avatar use PUT /auth/me/avatar."
+          }
+        },
+        {
+          "name": "Update Avatar",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/auth/me/avatar",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": "",
+                  "description": "JPG or PNG, max 5MB"
+                }
+              ]
+            },
+            "description": "Upload a new profile picture. Send as multipart/form-data with field name 'avatar'."
           }
         },
         {
@@ -269,8 +292,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 90000,\n  \"notes\": \"Updated note\"\n}"
-            }
+              "raw": "{\n  \"amount\": 90000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"Updated note\"\n}"
+            },
+            "description": "All fields are optional. wallet_id can be changed — balances are adjusted automatically."
           }
         },
         {
@@ -323,7 +347,19 @@
           "name": "Export Transactions to CSV",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/transactions/export-csv"
+            "url": {
+              "raw": "{{base_url}}/transactions/export-csv",
+              "host": ["{{base_url}}"],
+              "path": ["transactions", "export-csv"],
+              "query": [
+                { "key": "type",        "value": "expense", "disabled": true, "description": "income | expense | transfer" },
+                { "key": "wallet_id",   "value": "{{wallet_id}}", "disabled": true },
+                { "key": "category_id", "value": "{{category_id}}", "disabled": true },
+                { "key": "date_from",   "value": "2026-01-01", "disabled": true },
+                { "key": "date_to",     "value": "2026-12-31", "disabled": true }
+              ]
+            },
+            "description": "Returns a CSV file. Columns: ID, Date, Type, Amount, Category, Category ID, Wallet, Wallet ID, Merchant, Description, Notes. All query params are optional filters."
           }
         }
       ]
@@ -434,7 +470,7 @@
           "name": "List Wallets",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
             "if (pm.response.code === 200) {",
-            "  const list = pm.response.json().data || [];",
+            "  const list = pm.response.json().data.wallets || [];",
             "  if (list.length && !pm.collectionVariables.get('wallet_id')) {",
             "    pm.collectionVariables.set('wallet_id', list[0].id);",
             "  }",
@@ -442,7 +478,8 @@
           ]}}],
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/wallets"
+            "url": "{{base_url}}/wallets",
+            "description": "Returns { wallets: [...], recent_activity: [...] }. wallets includes per-wallet recent_activity (5 each). recent_activity is the 20 most recent transactions across all wallets."
           }
         },
         {
@@ -481,6 +518,19 @@
           }
         },
         {
+          "name": "Transfer Between Wallets",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/wallets/transfer",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from_wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"amount\": 500000,\n  \"notes\": \"Transfer to savings\",\n  \"date\": \"2026-05-30\"\n}"
+            },
+            "description": "Moves funds between two wallets. Creates a transfer transaction and adjusts both balances atomically. Returns the created transaction with wallet_name and to_wallet_name."
+          }
+        },
+        {
           "name": "Update Wallet",
           "request": {
             "method": "PUT",
@@ -492,8 +542,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"BCA Primary\",\n  \"is_default\": true\n}"
-            }
+              "raw": "{\n  \"name\": \"BCA Primary\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"color\": \"#1B4D35\",\n  \"balance\": 12850000,\n  \"is_default\": true\n}"
+            },
+            "description": "All fields are optional. balance can be set directly here."
           }
         },
         {
@@ -677,7 +728,7 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/analysis/dashboard",
-            "description": "Home page payload: balance summary, recent transactions, budget tracking, 7-month wealth growth."
+            "description": "Home page payload: balance summary, recent transactions (with wallet_name + category), budget tracking, 7-month wealth growth, and all categories (for FE forms)."
           }
         },
         {

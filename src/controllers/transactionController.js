@@ -157,6 +157,15 @@ const updateTransaction = async (req, res, next) => {
     const old = existing.rows[0];
     const { wallet_id, category_id, amount, description, merchant_name, notes, date } = req.body;
 
+    // validate new wallet belongs to user if provided
+    if (wallet_id && wallet_id !== old.wallet_id) {
+      const owns = await client.query(
+        `SELECT 1 FROM wallets WHERE id=$1 AND user_id=$2`,
+        [wallet_id, req.user.id]
+      );
+      if (!owns.rowCount) return failure(res, 'Wallet not found', 400);
+    }
+
     await client.query('BEGIN');
 
     const updated = await client.query(
@@ -172,22 +181,25 @@ const updateTransaction = async (req, res, next) => {
       [wallet_id, category_id, amount, description, merchant_name, notes, date, req.params.id, req.user.id]
     );
 
-    const amountChanged = amount && Number(amount) !== Number(old.amount);
+    const newAmount = amount !== undefined ? Number(amount) : Number(old.amount);
+    const newWalletId = wallet_id || old.wallet_id;
+    const amountChanged = amount !== undefined && Number(amount) !== Number(old.amount);
     const walletChanged = wallet_id && wallet_id !== old.wallet_id;
 
     if (amountChanged || walletChanged) {
-      const newAmount = amount || old.amount;
-      const newWalletId = wallet_id || old.wallet_id;
-
       if (old.type === 'transfer') {
+        // revert old transfer
         await applyBalanceDelta(client, old.wallet_id, Number(old.amount));
         await applyBalanceDelta(client, old.to_wallet_id, -Number(old.amount));
-        await applyBalanceDelta(client, newWalletId, -Number(newAmount));
-        await applyBalanceDelta(client, old.to_wallet_id, Number(newAmount));
+        // apply new transfer
+        await applyBalanceDelta(client, newWalletId, -newAmount);
+        await applyBalanceDelta(client, old.to_wallet_id, newAmount);
       } else {
+        // revert old wallet effect
         const revertDelta = old.type === 'income' ? -Number(old.amount) : Number(old.amount);
         await applyBalanceDelta(client, old.wallet_id, revertDelta);
-        const applyDelta = old.type === 'income' ? Number(newAmount) : -Number(newAmount);
+        // apply to new wallet
+        const applyDelta = old.type === 'income' ? newAmount : -newAmount;
         await applyBalanceDelta(client, newWalletId, applyDelta);
       }
     }
@@ -313,42 +325,69 @@ const getSpendingByDay = async (req, res, next) => {
 const csvEscape = (val) => {
   if (val === null || val === undefined) return '';
   const str = String(val);
+  // always quote if contains comma, double-quote, newline, or carriage return
   if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
 };
 
 const exportCsv = async (req, res, next) => {
   try {
+    const { date_from, date_to, type, wallet_id, category_id } = req.query;
+    const conditions = ['t.user_id = $1'];
+    const values = [req.user.id];
+    let idx = 2;
+
+    if (type) { conditions.push(`t.type = $${idx++}`); values.push(type); }
+    if (wallet_id) { conditions.push(`t.wallet_id = $${idx++}`); values.push(wallet_id); }
+    if (category_id) { conditions.push(`t.category_id = $${idx++}`); values.push(category_id); }
+    if (date_from) { conditions.push(`t.date >= $${idx++}`); values.push(date_from); }
+    if (date_to) { conditions.push(`t.date <= $${idx++}`); values.push(date_to); }
+
     const result = await query(
-      `SELECT t.date, t.type, t.amount,
-              c.name AS category_name, w.name AS wallet_name,
-              t.description, t.merchant_name
+      `SELECT t.id, t.date, t.type, t.amount,
+              t.category_id, c.name AS category_name,
+              t.wallet_id,   w.name AS wallet_name,
+              t.to_wallet_id, tw.name AS to_wallet_name,
+              t.merchant_name, t.description, t.notes
        FROM transactions t
        LEFT JOIN categories c ON c.id = t.category_id
        LEFT JOIN wallets w    ON w.id = t.wallet_id
-       WHERE t.user_id = $1
-       ORDER BY t.date DESC`,
-      [req.user.id]
+       LEFT JOIN wallets tw   ON tw.id = t.to_wallet_id
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY t.date DESC, t.created_at DESC`,
+      values
     );
 
-    const headers = ['Date', 'Type', 'Amount', 'Category', 'Wallet', 'Description', 'Merchant'];
-    const lines = [headers.join(',')];
+    const CRLF = '\r\n';
+    const headers = ['ID', 'Date', 'Type', 'Amount', 'Category', 'Category ID', 'Wallet', 'Wallet ID', 'To Wallet', 'To Wallet ID', 'Merchant', 'Description', 'Notes'];
+    const lines = [headers.map(csvEscape).join(',')];
+
     for (const row of result.rows) {
       const date = row.date ? new Date(row.date).toISOString().split('T')[0] : '';
       lines.push([
+        csvEscape(row.id),
         csvEscape(date),
         csvEscape(row.type),
         csvEscape(row.amount),
         csvEscape(row.category_name),
+        csvEscape(row.category_id),
         csvEscape(row.wallet_name),
-        csvEscape(row.description),
+        csvEscape(row.wallet_id),
+        csvEscape(row.to_wallet_name),
+        csvEscape(row.to_wallet_id),
         csvEscape(row.merchant_name),
+        csvEscape(row.description),
+        csvEscape(row.notes),
       ].join(','));
     }
 
-    res.header('Content-Type', 'text/csv');
-    res.attachment('transactions.csv');
-    return res.send(lines.join('\n'));
+    // utf-8 bom so excel opens it correctly
+    const BOM = '\uFEFF';
+    const csv = BOM + lines.join(CRLF) + CRLF;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="transactions.csv"');
+    return res.send(csv);
   } catch (err) {
     return next(err);
   }

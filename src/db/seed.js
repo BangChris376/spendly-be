@@ -2,17 +2,18 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
 
-// system categories aligned with the ai forecaster model
+// system categories — icon values are Lucide React component names (PascalCase)
 const SYSTEM_CATEGORIES = [
-  { name: 'Beauty',    icon: 'beauty',    color: '#EC4899', type: 'expense' },
-  { name: 'F&B',       icon: 'fnb',       color: '#EF4444', type: 'expense' },
-  { name: 'Gas',       icon: 'gas',       color: '#F97316', type: 'expense' },
-  { name: 'Groceries', icon: 'groceries', color: '#10B981', type: 'expense' },
-  { name: 'Health',    icon: 'health',    color: '#3B82F6', type: 'expense' },
-  { name: 'HouseHold', icon: 'household', color: '#8B5CF6', type: 'expense' },
-  { name: 'Lifestyle', icon: 'lifestyle', color: '#F59E0B', type: 'expense' },
-  { name: 'Listrik',   icon: 'electric',  color: '#EAB308', type: 'expense' },
-  { name: 'Income',    icon: 'income',    color: '#16A34A', type: 'income'  },
+  { name: 'Beauty',    icon: 'Sparkles',        color: '#EC4899', type: 'expense' },
+  { name: 'F&B',       icon: 'UtensilsCrossed', color: '#EF4444', type: 'expense' },
+  { name: 'Gas',       icon: 'Fuel',            color: '#F97316', type: 'expense' },
+  { name: 'Groceries', icon: 'ShoppingCart',    color: '#10B981', type: 'expense' },
+  { name: 'Health',    icon: 'HeartPulse',      color: '#3B82F6', type: 'expense' },
+  { name: 'HouseHold', icon: 'House',           color: '#8B5CF6', type: 'expense' },
+  { name: 'Lifestyle', icon: 'Shirt',           color: '#F59E0B', type: 'expense' },
+  { name: 'Listrik',   icon: 'Zap',             color: '#EAB308', type: 'expense' },
+  { name: 'Other',     icon: 'LayoutGrid',      color: '#6B7280', type: 'both'    },
+  { name: 'Income',    icon: 'Wallet',          color: '#16A34A', type: 'income'  },
 ];
 
 const SAMPLE_TRANSACTIONS = [
@@ -57,100 +58,74 @@ async function seed() {
     console.log('seeding database...');
     await client.query('BEGIN');
 
+    // wipe existing demo user (cascade deletes all related data)
+    await client.query(
+      `DELETE FROM users WHERE email = $1`,
+      ['alex.graham@spendly.io']
+    );
+    console.log('  old data cleared');
+
     // demo user
     const hash = await bcrypt.hash('password123', 12);
     const userRes = await client.query(
       `INSERT INTO users (email, password_hash, first_name, last_name, is_premium, monthly_limit)
        VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (email) DO UPDATE SET first_name = EXCLUDED.first_name
        RETURNING id`,
       ['alex.graham@spendly.io', hash, 'Alex', 'Graham', true, 25000000]
     );
     const userId = userRes.rows[0].id;
-    console.log('  user ready');
+    console.log('  user created');
 
     await client.query(
-      `INSERT INTO user_preferences (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+      `INSERT INTO user_preferences (user_id) VALUES ($1)`,
       [userId]
     );
 
-    // system categories
+    // system categories — always insert fresh so icon/color are correct
     const catIds = {};
     for (const cat of SYSTEM_CATEGORIES) {
       const inserted = await client.query(
         `INSERT INTO categories (user_id, name, icon, color, type, is_system)
          VALUES ($1,$2,$3,$4,$5,true)
-         ON CONFLICT DO NOTHING
          RETURNING id`,
         [userId, cat.name, cat.icon, cat.color, cat.type]
       );
-      if (inserted.rows.length) {
-        catIds[cat.name] = inserted.rows[0].id;
-      } else {
-        const existing = await client.query(
-          `SELECT id FROM categories WHERE user_id=$1 AND LOWER(name)=LOWER($2)`,
-          [userId, cat.name]
-        );
-        if (existing.rows.length) catIds[cat.name] = existing.rows[0].id;
-      }
+      catIds[cat.name] = inserted.rows[0].id;
     }
-    console.log(`  categories ready (${Object.keys(catIds).length})`);
+    console.log(`  categories inserted (${Object.keys(catIds).length})`);
 
     // default wallet
     const walletRes = await client.query(
-      `SELECT id FROM wallets WHERE user_id=$1 AND is_default=true LIMIT 1`,
+      `INSERT INTO wallets (user_id, name, type, account_number, bank_name, balance, is_default)
+       VALUES ($1,'BCA Savings','bank','****1234','Bank BCA',12850000,true) RETURNING id`,
       [userId]
     );
-    let walletId = walletRes.rows[0]?.id;
-    if (!walletId) {
-      const inserted = await client.query(
-        `INSERT INTO wallets (user_id, name, type, account_number, bank_name, balance, is_default)
-         VALUES ($1,'BCA Savings','bank','****1234','Bank BCA',12850000,true) RETURNING id`,
-        [userId]
+    const walletId = walletRes.rows[0].id;
+    console.log('  wallet created');
+
+    // sample transactions
+    for (const t of SAMPLE_TRANSACTIONS) {
+      if (!catIds[t.cat]) continue;
+      await client.query(
+        `INSERT INTO transactions (user_id, wallet_id, category_id, type, amount, merchant_name, date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [userId, walletId, catIds[t.cat], t.type, t.amount, t.merchant, dateOffset(t.days)]
       );
-      walletId = inserted.rows[0].id;
     }
-    console.log('  wallet ready');
+    console.log(`  transactions inserted (${SAMPLE_TRANSACTIONS.length})`);
 
-    // sample transactions (skip if user already has any)
-    const txnCheck = await client.query(
-      `SELECT COUNT(*)::int AS count FROM transactions WHERE user_id=$1`,
-      [userId]
-    );
-    if (txnCheck.rows[0].count === 0) {
-      for (const t of SAMPLE_TRANSACTIONS) {
-        if (!catIds[t.cat]) continue;
-        await client.query(
-          `INSERT INTO transactions (user_id, wallet_id, category_id, type, amount, merchant_name, date)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [userId, walletId, catIds[t.cat], t.type, t.amount, t.merchant, dateOffset(t.days)]
-        );
-      }
-      console.log(`  transactions inserted (${SAMPLE_TRANSACTIONS.length})`);
-    } else {
-      console.log('  transactions already exist, skipping');
+    // sample budgets
+    const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    const lastDay  = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+    for (const b of SAMPLE_BUDGETS) {
+      if (!catIds[b.cat]) continue;
+      await client.query(
+        `INSERT INTO budgets (user_id, category_id, name, amount, period, start_date, end_date)
+         VALUES ($1,$2,$3,$4,'monthly',$5,$6)`,
+        [userId, catIds[b.cat], b.name, b.amount, firstDay, lastDay]
+      );
     }
-
-    // sample budgets (only if none yet)
-    const budgetCheck = await client.query(
-      `SELECT COUNT(*)::int AS count FROM budgets WHERE user_id=$1`,
-      [userId]
-    );
-    if (budgetCheck.rows[0].count === 0) {
-      const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
-      for (const b of SAMPLE_BUDGETS) {
-        if (!catIds[b.cat]) continue;
-        await client.query(
-          `INSERT INTO budgets (user_id, category_id, name, amount, period, start_date, end_date)
-           VALUES ($1,$2,$3,$4,'monthly',$5,$6)`,
-          [userId, catIds[b.cat], b.name, b.amount, firstDay, lastDay]
-        );
-      }
-      console.log(`  budgets inserted (${SAMPLE_BUDGETS.length})`);
-    } else {
-      console.log('  budgets already exist, skipping');
-    }
+    console.log(`  budgets inserted (${SAMPLE_BUDGETS.length})`);
 
     await client.query('COMMIT');
     console.log('\nseed done');

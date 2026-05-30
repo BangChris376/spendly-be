@@ -1,4 +1,4 @@
-const { query } = require('../config/database');
+const { query, getClient } = require('../config/database');
 const { success, failure } = require('../utils/response');
 
 const getWallets = async (req, res, next) => {
@@ -15,7 +15,40 @@ const getWallets = async (req, res, next) => {
        ORDER BY w.is_default DESC, w.created_at ASC`,
       [req.user.id]
     );
-    return success(res, result.rows);
+
+    const wallets = result.rows;
+
+    // fetch recent activity across ALL wallets (20 most recent), attach wallet_name for display
+    const recentRes = await query(
+      `SELECT t.*,
+              c.name  AS category_name,
+              c.icon  AS category_icon,
+              c.color AS category_color,
+              w.name  AS wallet_name,
+              w.type  AS wallet_type,
+              tw.name AS to_wallet_name
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       LEFT JOIN wallets w    ON w.id = t.wallet_id
+       LEFT JOIN wallets tw   ON tw.id = t.to_wallet_id
+       WHERE t.user_id = $1
+       ORDER BY t.date DESC, t.created_at DESC
+       LIMIT 20`,
+      [req.user.id]
+    );
+
+    // also group per-wallet for individual wallet cards (5 each)
+    const byWallet = {};
+    for (const tx of recentRes.rows) {
+      if (tx.wallet_id && !byWallet[tx.wallet_id]) byWallet[tx.wallet_id] = [];
+      if (tx.wallet_id && byWallet[tx.wallet_id].length < 5) byWallet[tx.wallet_id].push(tx);
+    }
+    for (const w of wallets) w.recent_activity = byWallet[w.id] || [];
+
+    return success(res, {
+      wallets,
+      recent_activity: recentRes.rows,
+    });
   } catch (err) {
     return next(err);
   }
@@ -69,7 +102,8 @@ const updateWallet = async (req, res, next) => {
     );
     if (!existing.rows.length) return failure(res, 'Wallet not found', 404);
 
-    const { name, account_number, bank_name, color, is_default } = req.body;
+    // balance is accepted here so the FE edit form can update it directly
+    const { name, account_number, bank_name, color, is_default, balance } = req.body;
 
     if (is_default) {
       await query(`UPDATE wallets SET is_default = false WHERE user_id = $1`, [req.user.id]);
@@ -81,9 +115,10 @@ const updateWallet = async (req, res, next) => {
          account_number = COALESCE($2, account_number),
          bank_name      = COALESCE($3, bank_name),
          color          = COALESCE($4, color),
-         is_default     = COALESCE($5, is_default)
-       WHERE id = $6 RETURNING *`,
-      [name, account_number, bank_name, color, is_default, req.params.id]
+         is_default     = COALESCE($5, is_default),
+         balance        = COALESCE($6, balance)
+       WHERE id = $7 RETURNING *`,
+      [name, account_number, bank_name, color, is_default, balance, req.params.id]
     );
     return success(res, result.rows[0], 'Wallet updated');
   } catch (err) {
@@ -133,6 +168,73 @@ const getTotalBalance = async (req, res, next) => {
   }
 };
 
+const transferBetweenWallets = async (req, res, next) => {
+  const client = await getClient();
+  try {
+    const { from_wallet_id, to_wallet_id, amount, notes, date } = req.body;
+
+    if (from_wallet_id === to_wallet_id) {
+      return failure(res, 'Source and destination wallet must be different', 400);
+    }
+
+    // verify both wallets belong to user
+    const wallets = await client.query(
+      `SELECT id, name, balance FROM wallets WHERE id = ANY($1::uuid[]) AND user_id = $2`,
+      [[from_wallet_id, to_wallet_id], req.user.id]
+    );
+    if (wallets.rows.length < 2) {
+      return failure(res, 'One or both wallets not found', 404);
+    }
+
+    const fromWallet = wallets.rows.find((w) => w.id === from_wallet_id);
+    if (parseFloat(fromWallet.balance) < parseFloat(amount)) {
+      return failure(res, 'Insufficient balance in source wallet', 400);
+    }
+
+    await client.query('BEGIN');
+
+    const inserted = await client.query(
+      `INSERT INTO transactions
+         (user_id, wallet_id, to_wallet_id, type, amount, merchant_name, notes, date)
+       VALUES ($1, $2, $3, 'transfer', $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        req.user.id,
+        from_wallet_id,
+        to_wallet_id,
+        amount,
+        `Transfer to ${wallets.rows.find((w) => w.id === to_wallet_id)?.name || 'wallet'}`,
+        notes || null,
+        date || new Date(),
+      ]
+    );
+
+    await client.query(`UPDATE wallets SET balance = balance - $1 WHERE id = $2`, [amount, from_wallet_id]);
+    await client.query(`UPDATE wallets SET balance = balance + $1 WHERE id = $2`, [amount, to_wallet_id]);
+
+    await client.query('COMMIT');
+
+    // return transaction with wallet names attached
+    const txRes = await query(
+      `SELECT t.*,
+              w.name  AS wallet_name,
+              tw.name AS to_wallet_name
+       FROM transactions t
+       LEFT JOIN wallets w  ON w.id  = t.wallet_id
+       LEFT JOIN wallets tw ON tw.id = t.to_wallet_id
+       WHERE t.id = $1`,
+      [inserted.rows[0].id]
+    );
+
+    return success(res, txRes.rows[0], 'Transfer successful', 201);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    return next(err);
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getWallets,
   getWallet,
@@ -140,4 +242,5 @@ module.exports = {
   updateWallet,
   deleteWallet,
   getTotalBalance,
+  transferBetweenWallets,
 };

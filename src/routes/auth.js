@@ -60,6 +60,9 @@ router.put(
   ctrl.updateProfile
 );
 
+// dedicated avatar upload endpoint — multipart/form-data, field name: "avatar"
+router.put('/me/avatar', authenticate, upload.single('avatar'), ctrl.updateAvatar);
+
 router.put(
   '/me/password',
   authenticate,
