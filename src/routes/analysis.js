@@ -5,10 +5,7 @@ const { authenticate } = require('../middlewares/auth');
 const router = express.Router();
 router.use(authenticate);
 
-router.get('/dashboard', ctrl.getDashboardOverview);
-router.get('/insights', ctrl.getAnalysis);
-router.get('/unusual-spending', ctrl.getUnusualSpending);
-router.get('/forecast', ctrl.getForecast);
-router.get('/ai-health', ctrl.getAIHealth);
+// Unified analysis endpoint for frontend global filtering
+router.get('/summary', ctrl.getFullAnalysisSummary);
 
 module.exports = router;
