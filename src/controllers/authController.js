@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { query, getClient } = require('../config/database');
 const { success, failure } = require('../utils/response');
 const tokenService = require('../services/tokenService');
+const emailService = require('../services/emailService');
 
 const register = async (req, res, next) => {
   const client = await getClient();
@@ -216,6 +217,18 @@ const forgotPassword = async (req, res, next) => {
     );
 
     console.log(`[email mock] reset link for ${email}: /reset-password?token=${resetToken}`);
+
+    try {
+      // Send real email if SMTP credentials are set
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        await emailService.sendPasswordResetEmail(email.toLowerCase(), resetToken);
+      } else {
+        console.log(`[email mock] SMTP credentials not set, skipping actual email send.`);
+      }
+    } catch (emailErr) {
+      console.error('Failed to send reset email:', emailErr);
+      // We still return success to avoid enumeration, but log the error
+    }
 
     // only expose the token in development for easier testing
     const payload = process.env.NODE_ENV === 'development' ? { reset_token: resetToken } : null;

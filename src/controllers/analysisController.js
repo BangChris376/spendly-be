@@ -350,23 +350,27 @@ const _fetchAnalysis = async (userId, filterQuery, forecastData) => {
 // Internal Helper: Unusual Spending
 const _fetchUnusualSpending = async (userId, filterQuery) => {
   const result = await query(
-    `SELECT c.name AS category,
+    `WITH CategoryAverages AS (
+       SELECT category_id, AVG(amount) AS avg_amount
+       FROM transactions
+       WHERE user_id = $1 AND type = 'expense'
+       GROUP BY category_id
+     )
+     SELECT c.name AS category,
             t.merchant_name,
             t.amount,
             t.date,
-            AVG(t2.amount) OVER (PARTITION BY t.category_id) AS avg_amount,
+            ca.avg_amount,
             ROUND(
-              (t.amount - AVG(t2.amount) OVER (PARTITION BY t.category_id)) /
-              NULLIF(AVG(t2.amount) OVER (PARTITION BY t.category_id), 0) * 100, 1
+              (t.amount - ca.avg_amount) / NULLIF(ca.avg_amount, 0) * 100, 1
             ) AS deviation_pct
      FROM transactions t
      JOIN categories c ON c.id = t.category_id
-     JOIN transactions t2 ON t2.category_id = t.category_id AND t2.user_id = t.user_id
+     JOIN CategoryAverages ca ON ca.category_id = t.category_id
      WHERE t.user_id = $1 AND t.type = 'expense'
        AND t.date >= NOW() - INTERVAL '30 days'
        AND c.name = ANY($2::text[])
-     GROUP BY t.id, c.name
-     HAVING t.amount > AVG(t2.amount) * 1.5
+       AND t.amount > ca.avg_amount * 1.5
      ORDER BY deviation_pct DESC
      LIMIT 5`,
     [userId, AI_CATEGORIES]
