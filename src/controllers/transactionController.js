@@ -303,8 +303,7 @@ const getSummary = async (req, res, next) => {
        JOIN categories c ON c.id = t.category_id
        WHERE t.user_id=$1 AND t.type='expense' AND ${dateFilter}
        GROUP BY c.id, c.name, c.icon, c.color
-       ORDER BY total DESC
-       LIMIT 6`,
+       ORDER BY total DESC`,
       [req.user.id, year, month]
     );
 
