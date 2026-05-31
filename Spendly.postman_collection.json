@@ -1,764 +1,1245 @@
-{
-  "info": {
-    "name": "Spendly API",
-    "description": "REST API for Spendly Financial Tracker. Base URL: http://localhost:3000/api/v1\n\nQuick start:\n1. Edit the `base_url` collection variable if your server runs elsewhere.\n2. Run Auth > Login. The access token and refresh token are saved automatically.\n3. Run Wallets > List Wallets and Categories > List Categories to populate `wallet_id` and `category_id` variables.\n4. All other requests will work from there.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "auth": {
-    "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
-  },
-  "variable": [
-    { "key": "base_url",       "value": "http://localhost:3000/api/v1", "type": "string" },
-    { "key": "token",          "value": "",                              "type": "string" },
-    { "key": "refresh_token",  "value": "",                              "type": "string" },
-    { "key": "reset_token",    "value": "",                              "type": "string" },
-    { "key": "transaction_id", "value": "",                              "type": "string" },
-    { "key": "wallet_id",      "value": "",                              "type": "string" },
-    { "key": "category_id",    "value": "",                              "type": "string" },
-    { "key": "budget_id",      "value": "",                              "type": "string" },
-    { "key": "scan_id",        "value": "",                              "type": "string" }
-  ],
-  "item": [
-    {
-      "name": "Health",
-      "item": [
+  {
+    "info": {
+      "name": "Spendly API",
+      "description": "REST API for Spendly Financial Tracker. Base URL: http://localhost:3000/api/v1\n\nQuick start:\n1. Edit the `base_url` collection variable if your server runs elsewhere.\n2. Run Auth > Login. The access token and refresh token are saved automatically.\n3. Run Wallets > List Wallets and Categories > List Categories to populate `wallet_id` and `category_id` variables.\n4. All other requests will work from there.",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+      "type": "bearer",
+      "bearer": [
         {
-          "name": "Server Health",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "GET",
-            "url": "http://localhost:3000/health",
-            "description": "Returns service status, version, and environment. No auth required."
-          }
+          "key": "token",
+          "value": "{{token}}",
+          "type": "string"
         }
       ]
     },
-    {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Register",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 201) {",
-            "  const data = pm.response.json().data;",
-            "  pm.collectionVariables.set('token', data.accessToken);",
-            "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
-            "}"
-          ]}}],
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/register",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"first_name\": \"Budi\",\n  \"last_name\": \"Santoso\"\n}"
-            },
-            "description": "Creates a new user account. Also creates a default Cash wallet and user preferences. Returns accessToken + refreshToken."
-          }
-        },
-        {
-          "name": "Login",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 200) {",
-            "  const data = pm.response.json().data;",
-            "  pm.collectionVariables.set('token', data.accessToken);",
-            "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
-            "}"
-          ]}}],
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/login",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"alex.graham@spendly.io\",\n  \"password\": \"password123\"\n}"
-            },
-            "description": "Authenticates user and returns accessToken + refreshToken. Token is auto-saved to collection variables."
-          }
-        },
-        {
-          "name": "Refresh Token",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 200) {",
-            "  const data = pm.response.json().data;",
-            "  pm.collectionVariables.set('token', data.accessToken);",
-            "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
-            "}"
-          ]}}],
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/refresh",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
-            },
-            "description": "Rotates the refresh token and issues a new access token. Old refresh token is invalidated."
-          }
-        },
-        {
-          "name": "Logout",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/logout",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
-            },
-            "description": "Revokes the provided refresh token."
-          }
-        },
-        {
-          "name": "Forgot Password",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 200) {",
-            "  const data = pm.response.json().data;",
-            "  if (data && data.reset_token) pm.collectionVariables.set('reset_token', data.reset_token);",
-            "}"
-          ]}}],
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/forgot-password",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"alex.graham@spendly.io\"\n}"
-            },
-            "description": "In development (NODE_ENV=development), reset_token is returned in the response and auto-saved."
-          }
-        },
-        {
-          "name": "Reset Password",
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/reset-password",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"newpassword123\"\n}"
-            },
-            "description": "Resets password using token from Forgot Password. Token expires in 1 hour. All refresh tokens are revoked."
-          }
-        },
-        {
-          "name": "Get My Profile",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/auth/me",
-            "description": "Returns user profile including preferences (push_notifications, dark_mode, currency, etc.)."
-          }
-        },
-        {
-          "name": "Update Profile",
-          "request": {
-            "method": "PUT",
-            "url": "{{base_url}}/auth/me",
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                { "key": "first_name",    "value": "Alex",     "type": "text" },
-                { "key": "last_name",     "value": "Graham",   "type": "text" },
-                { "key": "monthly_limit", "value": "25000000", "type": "text" },
-                { "key": "avatar", "type": "file", "src": "", "disabled": true, "description": "Optional. JPG/PNG, max 5MB" }
-              ]
-            },
-            "description": "Updates first_name, last_name, monthly_limit. Optionally accepts an avatar file. Send as multipart/form-data."
-          }
-        },
-        {
-          "name": "Update Avatar",
-          "request": {
-            "method": "PUT",
-            "url": "{{base_url}}/auth/me/avatar",
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                { "key": "avatar", "type": "file", "src": "", "description": "JPG or PNG, max 5MB" }
-              ]
-            },
-            "description": "Dedicated avatar upload. Send as multipart/form-data with field name 'avatar'."
-          }
-        },
-        {
-          "name": "Update Password",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/me/password",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"newpassword456\"\n}"
-            },
-            "description": "Changes password. Requires current password. All existing refresh tokens are revoked."
-          }
-        },
-        {
-          "name": "Update Preferences",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/auth/me/preferences",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"push_notifications\": true,\n  \"email_summaries\": false,\n  \"security_alerts\": true,\n  \"spending_alerts\": true,\n  \"spending_alert_pct\": 80,\n  \"dark_mode\": false,\n  \"currency\": \"IDR\"\n}"
-            },
-            "description": "All fields optional — only provided fields are updated."
-          }
-        }
-      ]
-    },
-    {
-      "name": "Transactions",
-      "item": [
-        {
-          "name": "List Transactions",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/transactions?page=1&limit=10&sort=date&order=DESC",
-              "host": ["{{base_url}}"],
-              "path": ["transactions"],
-              "query": [
-                { "key": "page",        "value": "1" },
-                { "key": "limit",       "value": "10" },
-                { "key": "sort",        "value": "date",    "description": "date | amount | created_at" },
-                { "key": "order",       "value": "DESC",    "description": "ASC | DESC" },
-                { "key": "type",        "value": "expense", "disabled": true, "description": "income | expense | transfer" },
-                { "key": "date_from",   "value": "2026-05-01", "disabled": true },
-                { "key": "date_to",     "value": "2026-05-31", "disabled": true },
-                { "key": "category_id", "value": "{{category_id}}", "disabled": true },
-                { "key": "wallet_id",   "value": "{{wallet_id}}",   "disabled": true },
-                { "key": "search",      "value": "Indomaret", "disabled": true },
-                { "key": "amount_min",  "value": "50000",  "disabled": true },
-                { "key": "amount_max",  "value": "500000", "disabled": true }
-              ]
-            },
-            "description": "Paginated list sorted by date DESC then created_at DESC. Returns { data, pagination }."
-          }
-        },
-        {
-          "name": "Get Transaction by ID",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/transactions/{{transaction_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["transactions", "{{transaction_id}}"]
+    "variable": [
+      {
+        "key": "base_url",
+        "value": "http://localhost:3000/api/v1",
+        "type": "string"
+      },
+      {
+        "key": "token",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "refresh_token",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "reset_token",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "transaction_id",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "wallet_id",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "category_id",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "budget_id",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "scan_id",
+        "value": "",
+        "type": "string"
+      }
+    ],
+    "item": [
+      {
+        "name": "Health",
+        "item": [
+          {
+            "name": "Server Health",
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "GET",
+              "url": "http://localhost:3000/health",
+              "description": "Returns service status, version, and environment. No auth required."
             }
           }
-        },
-        {
-          "name": "Create Transaction (Expense)",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 201) {",
-            "  pm.collectionVariables.set('transaction_id', pm.response.json().data.id);",
-            "}"
-          ]}}],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/transactions",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 85000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Daily groceries\"\n}"
-            },
-            "description": "Wallet balance is reduced by amount. Returns 400 if insufficient balance."
-          }
-        },
-        {
-          "name": "Create Transaction (Income)",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/transactions",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"income\",\n  \"amount\": 15000000,\n  \"merchant_name\": \"Salary Deposit\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\"\n}"
-            },
-            "description": "Wallet balance is increased by amount."
-          }
-        },
-        {
-          "name": "Create Transaction (Transfer)",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/transactions",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 500000,\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Transfer to savings\"\n}"
-            },
-            "description": "Source wallet balance is reduced, destination is increased. Returns 400 if insufficient balance."
-          }
-        },
-        {
-          "name": "Update Transaction",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": {
-              "raw": "{{base_url}}/transactions/{{transaction_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["transactions", "{{transaction_id}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"amount\": 90000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Updated note\"\n}"
-            },
-            "description": "All fields optional. Wallet balances adjusted automatically on amount/wallet change."
-          }
-        },
-        {
-          "name": "Delete Transaction",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{base_url}}/transactions/{{transaction_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["transactions", "{{transaction_id}}"]
-            },
-            "description": "Deletes transaction and reverses its effect on wallet balance."
-          }
-        },
-        {
-          "name": "Get Summary",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/transactions/summary?period=month&year=2026&month=5",
-              "host": ["{{base_url}}"],
-              "path": ["transactions", "summary"],
-              "query": [
-                { "key": "period", "value": "month", "description": "month | year" },
-                { "key": "year",   "value": "2026" },
-                { "key": "month",  "value": "5" }
-              ]
-            },
-            "description": "Returns total_income, total_expense, net_balance, transaction_count, and top-6 expense breakdown by category."
-          }
-        },
-        {
-          "name": "Get Cash Flow",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/transactions/cash-flow?months=6",
-              "host": ["{{base_url}}"],
-              "path": ["transactions", "cash-flow"],
-              "query": [{ "key": "months", "value": "6", "description": "1-24, default: 6" }]
-            },
-            "description": "Monthly income and expense totals for the last N months."
-          }
-        },
-        {
-          "name": "Get Spending By Day",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/transactions/spending-by-day",
-            "description": "Total expense grouped by day of week (0=Sun...6=Sat) for the last 30 days."
-          }
-        },
-        {
-          "name": "Export Transactions to CSV",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/transactions/export-csv",
-              "host": ["{{base_url}}"],
-              "path": ["transactions", "export-csv"],
-              "query": [
-                { "key": "type",        "value": "expense", "disabled": true, "description": "income | expense | transfer" },
-                { "key": "wallet_id",   "value": "{{wallet_id}}", "disabled": true },
-                { "key": "category_id", "value": "{{category_id}}", "disabled": true },
-                { "key": "date_from",   "value": "2026-01-01", "disabled": true },
-                { "key": "date_to",     "value": "2026-12-31", "disabled": true }
-              ]
-            },
-            "description": "Downloads UTF-8 CSV (with BOM for Excel). Columns: ID, Date, Type, Amount, Category, Wallet, Merchant, Notes. Transfer type shows 'Transfer' in Category column. Use responseType: 'blob' in axios on the frontend."
-          }
-        }
-      ]
-    },
-    {
-      "name": "Categories",
-      "item": [
-        {
-          "name": "List Categories",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 200) {",
-            "  const list = pm.response.json().data || [];",
-            "  if (list.length && !pm.collectionVariables.get('category_id')) {",
-            "    pm.collectionVariables.set('category_id', list[0].id);",
-            "  }",
-            "}"
-          ]}}],
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/categories",
-              "host": ["{{base_url}}"],
-              "path": ["categories"],
-              "query": [
-                { "key": "type", "value": "expense", "disabled": true, "description": "expense | income | both" }
-              ]
-            },
-            "description": "Returns system + user categories with transaction_count and total_amount. Icons are Lucide React component names (PascalCase, e.g. 'ShoppingCart', 'Sparkles', 'Fuel')."
-          }
-        },
-        {
-          "name": "Get Category Stats",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/categories/stats?month=5&year=2026",
-              "host": ["{{base_url}}"],
-              "path": ["categories", "stats"],
-              "query": [
-                { "key": "month", "value": "5",    "description": "1-12 (default: current month)" },
-                { "key": "year",  "value": "2026", "description": "4-digit year (default: current year)" }
-              ]
-            },
-            "description": "Expense breakdown per category for the given month/year with percentage of total spending."
-          }
-        },
-        {
-          "name": "Get Category by ID",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/categories/{{category_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["categories", "{{category_id}}"]
+        ]
+      },
+      {
+        "name": "Auth",
+        "item": [
+          {
+            "name": "Register",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  const data = pm.response.json().data;",
+                    "  pm.collectionVariables.set('token', data.accessToken);",
+                    "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/register",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"first_name\": \"Budi\",\n  \"last_name\": \"Santoso\"\n}"
+              },
+              "description": "Creates a new user account. Also creates a default Cash wallet and user preferences. Returns accessToken + refreshToken."
+            }
+          },
+          {
+            "name": "Login",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  const data = pm.response.json().data;",
+                    "  pm.collectionVariables.set('token', data.accessToken);",
+                    "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/login",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"alex.graham@spendly.io\",\n  \"password\": \"password123\"\n}"
+              },
+              "description": "Authenticates user and returns accessToken + refreshToken. Token is auto-saved to collection variables."
+            }
+          },
+          {
+            "name": "Refresh Token",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  const data = pm.response.json().data;",
+                    "  pm.collectionVariables.set('token', data.accessToken);",
+                    "  pm.collectionVariables.set('refresh_token', data.refreshToken);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/refresh",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+              },
+              "description": "Rotates the refresh token and issues a new access token. Old refresh token is invalidated."
+            }
+          },
+          {
+            "name": "Logout",
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/logout",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+              },
+              "description": "Revokes the provided refresh token."
+            }
+          },
+          {
+            "name": "Forgot Password",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  const data = pm.response.json().data;",
+                    "  if (data && data.reset_token) pm.collectionVariables.set('reset_token', data.reset_token);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/forgot-password",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"alex.graham@spendly.io\"\n}"
+              },
+              "description": "In development (NODE_ENV=development), reset_token is returned in the response and auto-saved."
+            }
+          },
+          {
+            "name": "Reset Password",
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/reset-password",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"newpassword123\"\n}"
+              },
+              "description": "Resets password using token from Forgot Password. Token expires in 1 hour. All refresh tokens are revoked."
+            }
+          },
+          {
+            "name": "Get My Profile",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/auth/me",
+              "description": "Returns user profile including preferences (push_notifications, dark_mode, currency, etc.)."
+            }
+          },
+          {
+            "name": "Update Profile",
+            "request": {
+              "method": "PUT",
+              "url": "{{base_url}}/auth/me",
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "first_name",
+                    "value": "Alex",
+                    "type": "text"
+                  },
+                  {
+                    "key": "last_name",
+                    "value": "Graham",
+                    "type": "text"
+                  },
+                  {
+                    "key": "monthly_limit",
+                    "value": "25000000",
+                    "type": "text"
+                  },
+                  {
+                    "key": "avatar",
+                    "type": "file",
+                    "src": "",
+                    "disabled": true,
+                    "description": "Optional. JPG/PNG, max 5MB"
+                  }
+                ]
+              },
+              "description": "Updates first_name, last_name, monthly_limit. Optionally accepts an avatar file. Send as multipart/form-data."
+            }
+          },
+          {
+            "name": "Update Avatar",
+            "request": {
+              "method": "PUT",
+              "url": "{{base_url}}/auth/me/avatar",
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "avatar",
+                    "type": "file",
+                    "src": "",
+                    "description": "JPG or PNG, max 5MB"
+                  }
+                ]
+              },
+              "description": "Dedicated avatar upload. Send as multipart/form-data with field name 'avatar'."
+            }
+          },
+          {
+            "name": "Update Password",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/me/password",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"newpassword456\"\n}"
+              },
+              "description": "Changes password. Requires current password. All existing refresh tokens are revoked."
+            }
+          },
+          {
+            "name": "Update Preferences",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/auth/me/preferences",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"push_notifications\": true,\n  \"email_summaries\": false,\n  \"security_alerts\": true,\n  \"spending_alerts\": true,\n  \"spending_alert_pct\": 80,\n  \"dark_mode\": false,\n  \"currency\": \"IDR\"\n}"
+              },
+              "description": "All fields optional — only provided fields are updated."
             }
           }
-        },
-        {
-          "name": "Create Category",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 201) {",
-            "  pm.collectionVariables.set('category_id', pm.response.json().data.id);",
-            "}"
-          ]}}],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/categories",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Hobbies\",\n  \"icon\": \"Gamepad2\",\n  \"color\": \"#8B5CF6\",\n  \"type\": \"expense\"\n}"
-            },
-            "description": "icon must be a valid Lucide React component name (PascalCase). type: expense | income | both."
-          }
-        },
-        {
-          "name": "Update Category",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": {
-              "raw": "{{base_url}}/categories/{{category_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["categories", "{{category_id}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Hobbies & Games\",\n  \"icon\": \"Gamepad2\",\n  \"color\": \"#7C3AED\"\n}"
-            },
-            "description": "System categories (is_system=true) cannot be edited."
-          }
-        },
-        {
-          "name": "Delete Category",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{base_url}}/categories/{{category_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["categories", "{{category_id}}"]
-            },
-            "description": "System categories cannot be deleted. Linked transactions will have category_id set to NULL."
-          }
-        }
-      ]
-    },
-    {
-      "name": "Wallets",
-      "item": [
-        {
-          "name": "List Wallets",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 200) {",
-            "  const list = pm.response.json().data.wallets || [];",
-            "  if (list.length && !pm.collectionVariables.get('wallet_id')) {",
-            "    pm.collectionVariables.set('wallet_id', list[0].id);",
-            "  }",
-            "}"
-          ]}}],
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/wallets",
-            "description": "Returns { wallets, recent_activity }. Each wallet includes transaction_count, total_income, total_expense, and recent_activity (last 5 txns). recent_activity at root is the 20 most recent across all wallets."
-          }
-        },
-        {
-          "name": "Get Total Balance",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/wallets/balance",
-            "description": "Returns total_balance, wallet_count, total_income, total_expense across all time."
-          }
-        },
-        {
-          "name": "Get Wallet by ID",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/wallets/{{wallet_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["wallets", "{{wallet_id}}"]
+        ]
+      },
+      {
+        "name": "Transactions",
+        "item": [
+          {
+            "name": "List Transactions",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/transactions?page=1&limit=10&sort=date&order=DESC",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "transactions"
+                ],
+                "query": [
+                  {
+                    "key": "page",
+                    "value": "1"
+                  },
+                  {
+                    "key": "limit",
+                    "value": "10"
+                  },
+                  {
+                    "key": "sort",
+                    "value": "date",
+                    "description": "date | amount | created_at"
+                  },
+                  {
+                    "key": "order",
+                    "value": "DESC",
+                    "description": "ASC | DESC"
+                  },
+                  {
+                    "key": "type",
+                    "value": "expense",
+                    "disabled": true,
+                    "description": "income | expense | transfer"
+                  },
+                  {
+                    "key": "date_from",
+                    "value": "2026-05-01",
+                    "disabled": true
+                  },
+                  {
+                    "key": "date_to",
+                    "value": "2026-05-31",
+                    "disabled": true
+                  },
+                  {
+                    "key": "category_id",
+                    "value": "{{category_id}}",
+                    "disabled": true
+                  },
+                  {
+                    "key": "wallet_id",
+                    "value": "{{wallet_id}}",
+                    "disabled": true
+                  },
+                  {
+                    "key": "search",
+                    "value": "Indomaret",
+                    "disabled": true
+                  },
+                  {
+                    "key": "amount_min",
+                    "value": "50000",
+                    "disabled": true
+                  },
+                  {
+                    "key": "amount_max",
+                    "value": "500000",
+                    "disabled": true
+                  }
+                ]
+              },
+              "description": "Paginated list sorted by date DESC then created_at DESC. Returns { data, pagination }."
+            }
+          },
+          {
+            "name": "Get Transaction by ID",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/transactions/{{transaction_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "transactions",
+                  "{{transaction_id}}"
+                ]
+              }
+            }
+          },
+          {
+            "name": "Create Transaction (Expense)",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  pm.collectionVariables.set('transaction_id', pm.response.json().data.id);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/transactions",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 85000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Daily groceries\"\n}"
+              },
+              "description": "Wallet balance is reduced by amount. Returns 400 if insufficient balance."
+            }
+          },
+          {
+            "name": "Create Transaction (Income)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/transactions",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"type\": \"income\",\n  \"amount\": 15000000,\n  \"merchant_name\": \"Salary Deposit\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\"\n}"
+              },
+              "description": "Wallet balance is increased by amount."
+            }
+          },
+          {
+            "name": "Create Transaction (Transfer)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/transactions",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 500000,\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Transfer to savings\"\n}"
+              },
+              "description": "Source wallet balance is reduced, destination is increased. Returns 400 if insufficient balance."
+            }
+          },
+          {
+            "name": "Update Transaction",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/transactions/{{transaction_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "transactions",
+                  "{{transaction_id}}"
+                ]
+              },
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"amount\": 90000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Updated note\"\n}"
+              },
+              "description": "All fields optional. Wallet balances adjusted automatically on amount/wallet change."
+            }
+          },
+          {
+            "name": "Delete Transaction",
+            "request": {
+              "method": "DELETE",
+              "url": {
+                "raw": "{{base_url}}/transactions/{{transaction_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "transactions",
+                  "{{transaction_id}}"
+                ]
+              },
+              "description": "Deletes transaction and reverses its effect on wallet balance."
+            }
+          },
+          {
+            "name": "Get Summary",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/transactions/summary?period=month&year=2026&month=5",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "transactions",
+                  "summary"
+                ],
+                "query": [
+                  {
+                    "key": "period",
+                    "value": "month",
+                    "description": "month | year"
+                  },
+                  {
+                    "key": "year",
+                    "value": "2026"
+                  },
+                  {
+                    "key": "month",
+                    "value": "5"
+                  }
+                ]
+              },
+              "description": "Returns total_income, total_expense, net_balance, transaction_count, and top-6 expense breakdown by category."
+            }
+          },
+          {
+            "name": "Get Cash Flow",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/transactions/cash-flow?months=6",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "transactions",
+                  "cash-flow"
+                ],
+                "query": [
+                  {
+                    "key": "months",
+                    "value": "6",
+                    "description": "1-24, default: 6"
+                  }
+                ]
+              },
+              "description": "Monthly income and expense totals for the last N months."
+            }
+          },
+          {
+            "name": "Get Spending By Day",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/transactions/spending-by-day",
+              "description": "Total expense grouped by day of week (0=Sun...6=Sat) for the last 30 days."
+            }
+          },
+          {
+            "name": "Export Transactions to CSV",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/transactions/export-csv",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "transactions",
+                  "export-csv"
+                ],
+                "query": [
+                  {
+                    "key": "type",
+                    "value": "expense",
+                    "disabled": true,
+                    "description": "income | expense | transfer"
+                  },
+                  {
+                    "key": "wallet_id",
+                    "value": "{{wallet_id}}",
+                    "disabled": true
+                  },
+                  {
+                    "key": "category_id",
+                    "value": "{{category_id}}",
+                    "disabled": true
+                  },
+                  {
+                    "key": "date_from",
+                    "value": "2026-01-01",
+                    "disabled": true
+                  },
+                  {
+                    "key": "date_to",
+                    "value": "2026-12-31",
+                    "disabled": true
+                  }
+                ]
+              },
+              "description": "Downloads UTF-8 CSV (with BOM for Excel). Columns: ID, Date, Type, Amount, Category, Wallet, Merchant, Notes. Transfer type shows 'Transfer' in Category column. Use responseType: 'blob' in axios on the frontend."
             }
           }
-        },
-        {
-          "name": "Create Wallet",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 201) {",
-            "  pm.collectionVariables.set('wallet_id', pm.response.json().data.id);",
-            "}"
-          ]}}],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/wallets",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"BCA Savings\",\n  \"type\": \"bank\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"balance\": 5000000,\n  \"color\": \"#1B4D35\"\n}"
-            },
-            "description": "type: bank | credit_card | e_wallet | cash. balance defaults to 0."
-          }
-        },
-        {
-          "name": "Transfer Between Wallets",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/wallets/transfer",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"from_wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"amount\": 500000,\n  \"notes\": \"Transfer to savings\",\n  \"date\": \"2026-05-31\"\n}"
-            },
-            "description": "Moves funds between two wallets atomically. Returns 400 if source wallet has insufficient balance."
-          }
-        },
-        {
-          "name": "Update Wallet",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": {
-              "raw": "{{base_url}}/wallets/{{wallet_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["wallets", "{{wallet_id}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"BCA Primary\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"color\": \"#1B4D35\",\n  \"balance\": 12850000,\n  \"is_default\": true\n}"
-            },
-            "description": "All fields optional. Setting is_default=true unsets the previous default wallet."
-          }
-        },
-        {
-          "name": "Delete Wallet",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{base_url}}/wallets/{{wallet_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["wallets", "{{wallet_id}}"]
-            },
-            "description": "Default wallet cannot be deleted. Linked transactions will have wallet_id set to NULL."
-          }
-        }
-      ]
-    },
-    {
-      "name": "Budgets",
-      "item": [
-        {
-          "name": "List Budgets",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 200) {",
-            "  const list = pm.response.json().data || [];",
-            "  if (list.length && !pm.collectionVariables.get('budget_id')) {",
-            "    pm.collectionVariables.set('budget_id', list[0].id);",
-            "  }",
-            "}"
-          ]}}],
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/budgets",
-            "description": "Returns budgets with category info, spent, percentage_used, remaining, and status (healthy | warning | exceeded)."
-          }
-        },
-        {
-          "name": "Get Budget Summary",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/budgets/summary",
-            "description": "Aggregate stats: total_budgets, exceeded, warning, total_budget_amount, total_spent."
-          }
-        },
-        {
-          "name": "Get Budget by ID",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/budgets/{{budget_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["budgets", "{{budget_id}}"]
+        ]
+      },
+      {
+        "name": "Categories",
+        "item": [
+          {
+            "name": "List Categories",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  const list = pm.response.json().data || [];",
+                    "  if (list.length && !pm.collectionVariables.get('category_id')) {",
+                    "    pm.collectionVariables.set('category_id', list[0].id);",
+                    "  }",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/categories",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "categories"
+                ],
+                "query": [
+                  {
+                    "key": "type",
+                    "value": "expense",
+                    "disabled": true,
+                    "description": "expense | income | both"
+                  }
+                ]
+              },
+              "description": "Returns system + user categories with transaction_count and total_amount. Icons are Lucide React component names (PascalCase, e.g. 'ShoppingCart', 'Sparkles', 'Fuel')."
+            }
+          },
+          {
+            "name": "Get Category Stats",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/categories/stats?month=5&year=2026",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "categories",
+                  "stats"
+                ],
+                "query": [
+                  {
+                    "key": "month",
+                    "value": "5",
+                    "description": "1-12 (default: current month)"
+                  },
+                  {
+                    "key": "year",
+                    "value": "2026",
+                    "description": "4-digit year (default: current year)"
+                  }
+                ]
+              },
+              "description": "Expense breakdown per category for the given month/year with percentage of total spending."
+            }
+          },
+          {
+            "name": "Get Category by ID",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/categories/{{category_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "categories",
+                  "{{category_id}}"
+                ]
+              }
+            }
+          },
+          {
+            "name": "Create Category",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  pm.collectionVariables.set('category_id', pm.response.json().data.id);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/categories",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"name\": \"Hobbies\",\n  \"icon\": \"Gamepad2\",\n  \"color\": \"#8B5CF6\",\n  \"type\": \"expense\"\n}"
+              },
+              "description": "icon must be a valid Lucide React component name (PascalCase). type: expense | income | both."
+            }
+          },
+          {
+            "name": "Update Category",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/categories/{{category_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "categories",
+                  "{{category_id}}"
+                ]
+              },
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"name\": \"Hobbies & Games\",\n  \"icon\": \"Gamepad2\",\n  \"color\": \"#7C3AED\"\n}"
+              },
+              "description": "System categories (is_system=true) cannot be edited."
+            }
+          },
+          {
+            "name": "Delete Category",
+            "request": {
+              "method": "DELETE",
+              "url": {
+                "raw": "{{base_url}}/categories/{{category_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "categories",
+                  "{{category_id}}"
+                ]
+              },
+              "description": "System categories cannot be deleted. Linked transactions will have category_id set to NULL."
             }
           }
-        },
-        {
-          "name": "Create Budget",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 201) {",
-            "  pm.collectionVariables.set('budget_id', pm.response.json().data.id);",
-            "}"
-          ]}}],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{base_url}}/budgets",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"category_id\": \"{{category_id}}\",\n  \"amount\": 2000000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-05-01\",\n  \"end_date\": \"2026-05-31\"\n}"
-            },
-            "description": "period: weekly | monthly | yearly (default: monthly). category_id and end_date are optional."
-          }
-        },
-        {
-          "name": "Update Budget",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": {
-              "raw": "{{base_url}}/budgets/{{budget_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["budgets", "{{budget_id}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"amount\": 2500000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-30\"\n}"
-            },
-            "description": "All fields optional."
-          }
-        },
-        {
-          "name": "Delete Budget",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{base_url}}/budgets/{{budget_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["budgets", "{{budget_id}}"]
+        ]
+      },
+      {
+        "name": "Wallets",
+        "item": [
+          {
+            "name": "List Wallets",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  const list = pm.response.json().data.wallets || [];",
+                    "  if (list.length && !pm.collectionVariables.get('wallet_id')) {",
+                    "    pm.collectionVariables.set('wallet_id', list[0].id);",
+                    "  }",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/wallets",
+              "description": "Returns { wallets, recent_activity }. Each wallet includes transaction_count, total_income, total_expense, and recent_activity (last 5 txns). recent_activity at root is the 20 most recent across all wallets."
+            }
+          },
+          {
+            "name": "Get Total Balance",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/wallets/balance",
+              "description": "Returns total_balance, wallet_count, total_income, total_expense across all time."
+            }
+          },
+          {
+            "name": "Get Wallet by ID",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/wallets/{{wallet_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "wallets",
+                  "{{wallet_id}}"
+                ]
+              }
+            }
+          },
+          {
+            "name": "Create Wallet",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  pm.collectionVariables.set('wallet_id', pm.response.json().data.id);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/wallets",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"name\": \"BCA Savings\",\n  \"type\": \"bank\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"balance\": 5000000,\n  \"color\": \"#1B4D35\"\n}"
+              },
+              "description": "type: bank | credit_card | e_wallet | cash. balance defaults to 0."
+            }
+          },
+          {
+            "name": "Transfer Between Wallets",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/wallets/transfer",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"from_wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"amount\": 500000,\n  \"notes\": \"Transfer to savings\",\n  \"date\": \"2026-05-31\"\n}"
+              },
+              "description": "Moves funds between two wallets atomically. Returns 400 if source wallet has insufficient balance."
+            }
+          },
+          {
+            "name": "Update Wallet",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/wallets/{{wallet_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "wallets",
+                  "{{wallet_id}}"
+                ]
+              },
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"name\": \"BCA Primary\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"color\": \"#1B4D35\",\n  \"balance\": 12850000,\n  \"is_default\": true\n}"
+              },
+              "description": "All fields optional. Setting is_default=true unsets the previous default wallet."
+            }
+          },
+          {
+            "name": "Delete Wallet",
+            "request": {
+              "method": "DELETE",
+              "url": {
+                "raw": "{{base_url}}/wallets/{{wallet_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "wallets",
+                  "{{wallet_id}}"
+                ]
+              },
+              "description": "Default wallet cannot be deleted. Linked transactions will have wallet_id set to NULL."
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "Scans",
-      "item": [
-        {
-          "name": "Upload Receipt",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "if (pm.response.code === 202) {",
-            "  pm.collectionVariables.set('scan_id', pm.response.json().data.scan_id);",
-            "}"
-          ]}}],
-          "request": {
-            "method": "POST",
-            "url": "{{base_url}}/scans/upload",
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                { "key": "receipt", "type": "file", "src": "", "description": "JPG, PNG or PDF, max 5MB" }
-              ]
-            },
-            "description": "Returns 202 immediately with scan_id and status=processing. AI runs async. Poll Get Scan Result until status is 'completed' or 'failed'."
-          }
-        },
-        {
-          "name": "Get Scan Result",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/scans/{{scan_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["scans", "{{scan_id}}"]
-            },
-            "description": "Returns status (pending | processing | completed | failed), merchant_name, total_amount, scan_date, suggested_category, confidence_score, confidence_level (high | medium | low)."
-          }
-        },
-        {
-          "name": "Confirm Scan",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": {
-              "raw": "{{base_url}}/scans/{{scan_id}}/confirm",
-              "host": ["{{base_url}}"],
-              "path": ["scans", "{{scan_id}}", "confirm"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"merchant_name\": \"Indomaret\",\n  \"total_amount\": 88000,\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"From receipt scan\"\n}"
-            },
-            "description": "Saves scan as an expense transaction. All fields optional — falls back to AI values. Scan must be status=completed. Wallet balance is reduced."
-          }
-        },
-        {
-          "name": "List Scan History",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/scans",
-            "description": "Returns the 20 most recent receipt scans with suggested category info."
-          }
-        },
-        {
-          "name": "Delete Scan",
-          "request": {
-            "method": "DELETE",
-            "url": {
-              "raw": "{{base_url}}/scans/{{scan_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["scans", "{{scan_id}}"]
+        ]
+      },
+      {
+        "name": "Budgets",
+        "item": [
+          {
+            "name": "List Budgets",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  const list = pm.response.json().data || [];",
+                    "  if (list.length && !pm.collectionVariables.get('budget_id')) {",
+                    "    pm.collectionVariables.set('budget_id', list[0].id);",
+                    "  }",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/budgets",
+              "description": "Returns budgets with category info, spent, percentage_used, remaining, and status (healthy | warning | exceeded)."
+            }
+          },
+          {
+            "name": "Get Budget Summary",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/budgets/summary",
+              "description": "Aggregate stats: total_budgets, exceeded, warning, total_budget_amount, total_spent."
+            }
+          },
+          {
+            "name": "Get Budget by ID",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/budgets/{{budget_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "budgets",
+                  "{{budget_id}}"
+                ]
+              }
+            }
+          },
+          {
+            "name": "Create Budget",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  pm.collectionVariables.set('budget_id', pm.response.json().data.id);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": "{{base_url}}/budgets",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"category_id\": \"{{category_id}}\",\n  \"amount\": 2000000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-05-01\",\n  \"end_date\": \"2026-05-31\"\n}"
+              },
+              "description": "period: weekly | monthly | yearly (default: monthly). category_id and end_date are optional."
+            }
+          },
+          {
+            "name": "Update Budget",
+            "request": {
+              "method": "PUT",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/budgets/{{budget_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "budgets",
+                  "{{budget_id}}"
+                ]
+              },
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"amount\": 2500000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-30\"\n}"
+              },
+              "description": "All fields optional."
+            }
+          },
+          {
+            "name": "Delete Budget",
+            "request": {
+              "method": "DELETE",
+              "url": {
+                "raw": "{{base_url}}/budgets/{{budget_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "budgets",
+                  "{{budget_id}}"
+                ]
+              }
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "Analysis",
-      "item": [
-        {
-          "name": "Full Analysis Summary",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/analysis/summary",
-            "description": "Unified endpoint returning all analysis data:\n\n• dashboard: balance summary (income/expense with MoM % change), recent 5 transactions, top 5 budgets by usage, 7-month wealth growth, all categories\n• insights: 6-month cash flow, weekday heatmap, spending clusters by category (last 30 days), recurring merchants (last 90 days), rule-based + Gemini AI insights\n• unusual_spending: transactions in last 30 days that are >50% above category average\n• forecast: next-week spending prediction per AI category — null if AI service unavailable\n• ai_health: AI service status and URL"
+        ]
+      },
+      {
+        "name": "Scans",
+        "item": [
+          {
+            "name": "Upload Receipt",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 202) {",
+                    "  pm.collectionVariables.set('scan_id', pm.response.json().data.scan_id);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "request": {
+              "method": "POST",
+              "url": "{{base_url}}/scans/upload",
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "receipt",
+                    "type": "file",
+                    "src": "",
+                    "description": "JPG, PNG or PDF, max 5MB"
+                  }
+                ]
+              },
+              "description": "Returns 202 immediately with scan_id and status=processing. AI runs async. Poll Get Scan Result until status is 'completed' or 'failed'."
+            }
+          },
+          {
+            "name": "Get Scan Result",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/scans/{{scan_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "scans",
+                  "{{scan_id}}"
+                ]
+              },
+              "description": "Returns status (pending | processing | completed | failed), merchant_name, total_amount, scan_date, suggested_category, confidence_score, confidence_level (high | medium | low)."
+            }
+          },
+          {
+            "name": "Confirm Scan",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/scans/{{scan_id}}/confirm",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "scans",
+                  "{{scan_id}}",
+                  "confirm"
+                ]
+              },
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"merchant_name\": \"Indomaret\",\n  \"total_amount\": 88000,\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"From receipt scan\"\n}"
+              },
+              "description": "Saves scan as an expense transaction. All fields optional — falls back to AI values. Scan must be status=completed. Wallet balance is reduced."
+            }
+          },
+          {
+            "name": "List Scan History",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/scans",
+              "description": "Returns the 20 most recent receipt scans with suggested category info."
+            }
+          },
+          {
+            "name": "Delete Scan",
+            "request": {
+              "method": "DELETE",
+              "url": {
+                "raw": "{{base_url}}/scans/{{scan_id}}",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "scans",
+                  "{{scan_id}}"
+                ]
+              }
+            }
           }
-        }
-      ]
-    }
-  ]
-}
+        ]
+      },
+      {
+        "name": "Analysis",
+        "item": [
+          {
+            "name": "Full Analysis Summary",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/analysis/summary",
+              "description": "Unified endpoint returning all analysis data:\n\n• dashboard: balance summary (income/expense with MoM % change), recent 5 transactions, top 5 budgets by usage, 7-month wealth growth, all categories\n• insights: 6-month cash flow, weekday heatmap, spending clusters by category (last 30 days), recurring merchants (last 90 days), rule-based + Gemini AI insights\n• unusual_spending: transactions in last 30 days that are >50% above category average\n• forecast: next-week spending prediction per AI category — null if AI service unavailable\n• ai_health: AI service status and URL"
+            }
+          }
+        ]
+      }
+    ]
+  }
