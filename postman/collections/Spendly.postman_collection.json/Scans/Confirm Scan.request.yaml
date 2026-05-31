@@ -1,0 +1,18 @@
+$kind: http-request
+description: Saves the scan as an expense transaction. All fields are optional — falls back to AI-extracted values. Scan must have status=completed. Wallet balance is reduced by the amount.
+url: "{{base_url}}/scans/{{scan_id}}/confirm"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "merchant_name": "Indomaret",
+      "total_amount": 88000,
+      "category_id": "{{category_id}}",
+      "wallet_id": "{{wallet_id}}",
+      "date": "2026-05-31",
+      "notes": "From receipt scan"
+    }
+order: 3000

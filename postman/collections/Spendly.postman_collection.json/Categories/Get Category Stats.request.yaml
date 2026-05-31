@@ -1,0 +1,12 @@
+$kind: http-request
+description: Returns expense breakdown per category for the given month/year, including transaction_count, total_amount, and percentage of total spending.
+url: "{{base_url}}/categories/stats?month=5&year=2026"
+method: GET
+queryParams:
+  - key: month
+    value: "5"
+    description: "1-12 (default: current month)"
+  - key: year
+    value: "2026"
+    description: "4-digit year (default: current year)"
+order: 2000

@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns monthly income and expense totals for the last N months.
+url: "{{base_url}}/transactions/cash-flow?months=6"
+method: GET
+queryParams:
+  - key: months
+    value: "6"
+    description: "Number of months to look back (1-24, default: 6)"
+order: 9000

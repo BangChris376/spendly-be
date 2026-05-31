@@ -1,0 +1,27 @@
+$kind: http-request
+description: Creates a new user account. Also creates a default Cash wallet and user preferences. Returns accessToken + refreshToken.
+url: "{{base_url}}/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "user@example.com",
+      "password": "password123",
+      "first_name": "Budi",
+      "last_name": "Santoso"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.response.code === 201) {
+        const data = pm.response.json().data;
+        pm.collectionVariables.set('token', data.accessToken);
+        pm.collectionVariables.set('refresh_token', data.refreshToken);
+      }
+    language: text/javascript
+order: 1000

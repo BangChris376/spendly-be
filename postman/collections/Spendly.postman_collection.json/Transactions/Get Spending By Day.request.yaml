@@ -1,0 +1,5 @@
+$kind: http-request
+description: Returns total expense amount grouped by day of week (0=Sunday ... 6=Saturday) for the last 30 days.
+url: "{{base_url}}/transactions/spending-by-day"
+method: GET
+order: 10000

@@ -1,0 +1,5 @@
+$kind: http-request
+description: Deletes a user-created category. System categories cannot be deleted. Transactions linked to this category will have category_id set to NULL.
+url: "{{base_url}}/categories/{{category_id}}"
+method: DELETE
+order: 6000

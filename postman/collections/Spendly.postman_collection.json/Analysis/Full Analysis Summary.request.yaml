@@ -1,0 +1,12 @@
+$kind: http-request
+description: |-
+  Unified endpoint that returns all analysis data in one call:
+
+  • dashboard: balance summary (income/expense with MoM % change), recent 5 transactions, top 5 budgets by usage, 7-month wealth growth, all categories
+  • insights: 6-month cash flow, weekday spending heatmap, spending clusters by category (last 30 days), recurring merchants (last 90 days), rule-based + Gemini AI insights
+  • unusual_spending: transactions in the last 30 days that are >50% above the category average
+  • forecast: next-week spending prediction per AI category (Beauty, F&B, Gas, Groceries, Health, HouseHold, Lifestyle, Listrik) — null if AI service is unavailable
+  • ai_health: AI service status and URL
+url: "{{base_url}}/analysis/summary"
+method: GET
+order: 1000

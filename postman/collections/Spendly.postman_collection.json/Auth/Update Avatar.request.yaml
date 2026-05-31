@@ -1,0 +1,12 @@
+$kind: http-request
+description: Dedicated avatar upload endpoint. Send as multipart/form-data with field name 'avatar'.
+url: "{{base_url}}/auth/me/avatar"
+method: PUT
+body:
+  type: formdata
+  content:
+    - type: file
+      key: avatar
+      src: ""
+      description: JPG or PNG, max 5MB
+order: 9000

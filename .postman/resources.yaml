@@ -1,0 +1,13 @@
+workspace:
+  id: 8c796002-c809-4cd7-8dc4-3fb762dec649
+localResources:
+  collections:
+    - ..\Spendly.postman_collection.json
+    - ../Spendly.postman_collection.json
+    - ../postman/collections/Spendly.postman_collection.json
+  docs:
+    - ..\README.md
+cloudResources:
+  collections:
+    ../Spendly.postman_collection.json: 50156072-03e7f2b5-b831-437b-91da-43fa31dca407
+    ../postman/collections/Spendly.postman_collection.json: 50156072-03e7f2b5-b831-437b-91da-43fa31dca407

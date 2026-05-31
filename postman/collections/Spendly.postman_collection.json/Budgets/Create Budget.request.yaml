@@ -1,0 +1,25 @@
+$kind: http-request
+description: "Creates a budget. period: weekly | monthly | yearly (default: monthly). category_id and end_date are optional."
+url: "{{base_url}}/budgets"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Monthly Groceries",
+      "category_id": "{{category_id}}",
+      "amount": 2000000,
+      "period": "monthly",
+      "start_date": "2026-05-01",
+      "end_date": "2026-05-31"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.response.code === 201) {
+        pm.collectionVariables.set('budget_id', pm.response.json().data.id);
+      }
+    language: text/javascript
+order: 4000

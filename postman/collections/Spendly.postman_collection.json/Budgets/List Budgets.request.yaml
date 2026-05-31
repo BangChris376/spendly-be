@@ -1,0 +1,15 @@
+$kind: http-request
+description: Returns all budgets with category info, spent amount, percentage_used, remaining, and status (healthy | warning | exceeded).
+url: "{{base_url}}/budgets"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.response.code === 200) {
+        const list = pm.response.json().data || [];
+        if (list.length && !pm.collectionVariables.get('budget_id')) {
+          pm.collectionVariables.set('budget_id', list[0].id);
+        }
+      }
+    language: text/javascript
+order: 1000

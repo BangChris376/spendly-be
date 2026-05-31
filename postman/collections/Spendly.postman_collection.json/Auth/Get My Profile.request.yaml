@@ -1,0 +1,5 @@
+$kind: http-request
+description: Returns the authenticated user's profile including preferences (push_notifications, dark_mode, currency, etc.).
+url: "{{base_url}}/auth/me"
+method: GET
+order: 7000

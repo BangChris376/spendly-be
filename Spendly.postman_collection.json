@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Spendly API",
-    "description": "REST API for Spendly Financial Tracker. Base URL: http://localhost:3000/api/v1\n\nQuick start:\n1. Edit the `base_url` collection variable if your server runs elsewhere.\n2. Run Auth > Login. The access token and refresh token are saved automatically.\n3. Run Wallets > Create Wallet and Categories > Get All Categories to populate the `wallet_id` and `category_id` variables, then any other request will work.",
+    "description": "REST API for Spendly Financial Tracker. Base URL: http://localhost:3000/api/v1\n\nQuick start:\n1. Edit the `base_url` collection variable if your server runs elsewhere.\n2. Run Auth > Login. The access token and refresh token are saved automatically.\n3. Run Wallets > List Wallets and Categories > List Categories to populate `wallet_id` and `category_id` variables.\n4. All other requests will work from there.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -20,6 +20,7 @@
     { "key": "scan_id",        "value": "",                              "type": "string" }
   ],
   "item": [
+
     {
       "name": "Health",
       "item": [
@@ -28,7 +29,8 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "url": "http://localhost:3000/health"
+            "url": "http://localhost:3000/health",
+            "description": "Returns service status, version, and environment. No auth required."
           }
         }
       ]
@@ -54,7 +56,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"first_name\": \"Budi\",\n  \"last_name\": \"Santoso\"\n}"
-            }
+            },
+            "description": "Creates a new user account. Also creates a default Cash wallet and user preferences. Returns accessToken + refreshToken."
           }
         },
         {
@@ -74,7 +77,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"alex.graham@spendly.io\",\n  \"password\": \"password123\"\n}"
-            }
+            },
+            "description": "Authenticates user and returns accessToken + refreshToken. Token is auto-saved to collection variables."
           }
         },
         {
@@ -94,7 +98,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
-            }
+            },
+            "description": "Rotates the refresh token and issues a new access token. Old refresh token is invalidated."
           }
         },
         {
@@ -107,7 +112,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
-            }
+            },
+            "description": "Revokes the provided refresh token."
           }
         },
         {
@@ -127,7 +133,7 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"alex.graham@spendly.io\"\n}"
             },
-            "description": "Returns a reset token only when NODE_ENV=development."
+            "description": "Sends a password reset link. In development (NODE_ENV=development), the reset_token is returned in the response and auto-saved to collection variables."
           }
         },
         {
@@ -140,14 +146,16 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"newpassword123\"\n}"
-            }
+            },
+            "description": "Resets the password using the token from Forgot Password. Token expires in 1 hour. All existing refresh tokens are revoked."
           }
         },
         {
           "name": "Get My Profile",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/auth/me"
+            "url": "{{base_url}}/auth/me",
+            "description": "Returns the authenticated user's profile including preferences (push_notifications, dark_mode, currency, etc.)."
           }
         },
         {
@@ -160,10 +168,11 @@
               "formdata": [
                 { "key": "first_name",    "value": "Alex",     "type": "text" },
                 { "key": "last_name",     "value": "Graham",   "type": "text" },
-                { "key": "monthly_limit", "value": "25000000", "type": "text" }
+                { "key": "monthly_limit", "value": "25000000", "type": "text" },
+                { "key": "avatar",        "type": "file", "src": "", "disabled": true, "description": "Optional. JPG/PNG, max 5MB" }
               ]
             },
-            "description": "Send as multipart/form-data. Text fields only. To update avatar use PUT /auth/me/avatar."
+            "description": "Updates first_name, last_name, monthly_limit. Optionally accepts an avatar file. Send as multipart/form-data."
           }
         },
         {
@@ -174,15 +183,10 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "avatar",
-                  "type": "file",
-                  "src": "",
-                  "description": "JPG or PNG, max 5MB"
-                }
+                { "key": "avatar", "type": "file", "src": "", "description": "JPG or PNG, max 5MB" }
               ]
             },
-            "description": "Upload a new profile picture. Send as multipart/form-data with field name 'avatar'."
+            "description": "Dedicated avatar upload endpoint. Send as multipart/form-data with field name 'avatar'."
           }
         },
         {
@@ -194,7 +198,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"newpassword456\"\n}"
-            }
+            },
+            "description": "Changes password. Requires current password. All existing refresh tokens are revoked — user must login again."
           }
         },
         {
@@ -205,8 +210,9 @@
             "url": "{{base_url}}/auth/me/preferences",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"push_notifications\": true,\n  \"email_summaries\": false,\n  \"security_alerts\": true,\n  \"spending_alerts\": true,\n  \"dark_mode\": false,\n  \"currency\": \"IDR\"\n}"
-            }
+              "raw": "{\n  \"push_notifications\": true,\n  \"email_summaries\": false,\n  \"security_alerts\": true,\n  \"spending_alerts\": true,\n  \"spending_alert_pct\": 80,\n  \"dark_mode\": false,\n  \"currency\": \"IDR\"\n}"
+            },
+            "description": "Updates user notification and display preferences. All fields are optional — only provided fields are updated."
           }
         }
       ]
@@ -220,24 +226,25 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/transactions?page=1&limit=10&type=expense&sort=date&order=DESC",
+              "raw": "{{base_url}}/transactions?page=1&limit=10&sort=date&order=DESC",
               "host": ["{{base_url}}"],
               "path": ["transactions"],
               "query": [
-                { "key": "page",        "value": "1" },
-                { "key": "limit",       "value": "10" },
-                { "key": "type",        "value": "expense", "description": "income | expense | transfer" },
-                { "key": "sort",        "value": "date",    "description": "date | amount | created_at" },
-                { "key": "order",       "value": "DESC",    "description": "ASC | DESC" },
-                { "key": "date_from",   "value": "",        "disabled": true },
-                { "key": "date_to",     "value": "",        "disabled": true },
+                { "key": "page",        "value": "1",    "description": "Page number (default: 1)" },
+                { "key": "limit",       "value": "10",   "description": "Items per page (default: 10)" },
+                { "key": "sort",        "value": "date", "description": "date | amount | created_at" },
+                { "key": "order",       "value": "DESC", "description": "ASC | DESC" },
+                { "key": "type",        "value": "expense", "disabled": true, "description": "income | expense | transfer" },
+                { "key": "date_from",   "value": "2026-05-01", "disabled": true },
+                { "key": "date_to",     "value": "2026-05-31", "disabled": true },
                 { "key": "category_id", "value": "{{category_id}}", "disabled": true },
                 { "key": "wallet_id",   "value": "{{wallet_id}}",   "disabled": true },
-                { "key": "search",      "value": "",        "disabled": true },
-                { "key": "amount_min",  "value": "",        "disabled": true },
-                { "key": "amount_max",  "value": "",        "disabled": true }
+                { "key": "search",      "value": "Indomaret", "disabled": true, "description": "Search by merchant_name or description" },
+                { "key": "amount_min",  "value": "50000",  "disabled": true },
+                { "key": "amount_max",  "value": "500000", "disabled": true }
               ]
-            }
+            },
+            "description": "Paginated transaction list. Sorted by date DESC then created_at DESC by default. Returns { data: [...], pagination: { total, page, limit, totalPages } }."
           }
         },
         {
@@ -264,8 +271,9 @@
             "url": "{{base_url}}/transactions",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 85000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"Daily groceries\"\n}"
-            }
+              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 85000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Daily groceries\"\n}"
+            },
+            "description": "Creates an expense transaction. Wallet balance is reduced by amount. Returns 400 if wallet has insufficient balance."
           }
         },
         {
@@ -276,8 +284,22 @@
             "url": "{{base_url}}/transactions",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"income\",\n  \"amount\": 15000000,\n  \"merchant_name\": \"Salary Deposit\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\"\n}"
-            }
+              "raw": "{\n  \"type\": \"income\",\n  \"amount\": 15000000,\n  \"merchant_name\": \"Salary Deposit\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\"\n}"
+            },
+            "description": "Creates an income transaction. Wallet balance is increased by amount."
+          }
+        },
+        {
+          "name": "Create Transaction (Transfer)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/transactions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 500000,\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Transfer to savings\"\n}"
+            },
+            "description": "Creates a transfer between two wallets. Source wallet balance is reduced, destination is increased. Returns 400 if source wallet has insufficient balance."
           }
         },
         {
@@ -292,9 +314,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 90000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"Updated note\"\n}"
+              "raw": "{\n  \"amount\": 90000,\n  \"merchant_name\": \"Indomaret\",\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"Updated note\"\n}"
             },
-            "description": "All fields are optional. wallet_id can be changed — balances are adjusted automatically."
+            "description": "All fields are optional. Wallet balances are adjusted automatically when amount or wallet_id changes. Returns 400 if new amount exceeds wallet balance."
           }
         },
         {
@@ -305,7 +327,8 @@
               "raw": "{{base_url}}/transactions/{{transaction_id}}",
               "host": ["{{base_url}}"],
               "path": ["transactions", "{{transaction_id}}"]
-            }
+            },
+            "description": "Deletes a transaction and reverses its effect on wallet balance."
           }
         },
         {
@@ -313,15 +336,16 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/transactions/summary?period=month",
+              "raw": "{{base_url}}/transactions/summary?period=month&year=2026&month=5",
               "host": ["{{base_url}}"],
               "path": ["transactions", "summary"],
               "query": [
                 { "key": "period", "value": "month", "description": "month | year" },
-                { "key": "year",   "value": "2026",  "disabled": true },
-                { "key": "month",  "value": "5",     "disabled": true }
+                { "key": "year",   "value": "2026" },
+                { "key": "month",  "value": "5", "description": "1-12, only used when period=month" }
               ]
-            }
+            },
+            "description": "Returns total_income, total_expense, net_balance, transaction_count, and top-6 expense breakdown by category for the given period."
           }
         },
         {
@@ -332,15 +356,17 @@
               "raw": "{{base_url}}/transactions/cash-flow?months=6",
               "host": ["{{base_url}}"],
               "path": ["transactions", "cash-flow"],
-              "query": [{ "key": "months", "value": "6" }]
-            }
+              "query": [{ "key": "months", "value": "6", "description": "Number of months to look back (1-24, default: 6)" }]
+            },
+            "description": "Returns monthly income and expense totals for the last N months."
           }
         },
         {
           "name": "Get Spending By Day",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/transactions/spending-by-day"
+            "url": "{{base_url}}/transactions/spending-by-day",
+            "description": "Returns total expense amount grouped by day of week (0=Sunday ... 6=Saturday) for the last 30 days."
           }
         },
         {
@@ -359,7 +385,7 @@
                 { "key": "date_to",     "value": "2026-12-31", "disabled": true }
               ]
             },
-            "description": "Returns a CSV file. Columns: ID, Date, Type, Amount, Category, Category ID, Wallet, Wallet ID, Merchant, Description, Notes. All query params are optional filters."
+            "description": "Downloads a UTF-8 CSV file (with BOM for Excel compatibility). Columns: ID, Date, Type, Amount, Category, Wallet, Merchant, Notes. Transfer transactions show 'Transfer' in the Category column. Use responseType: 'blob' in axios or .blob() in fetch on the frontend."
           }
         }
       ]
@@ -381,13 +407,14 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/categories?type=expense",
+              "raw": "{{base_url}}/categories",
               "host": ["{{base_url}}"],
               "path": ["categories"],
               "query": [
-                { "key": "type", "value": "expense", "description": "expense | income | both" }
+                { "key": "type", "value": "expense", "disabled": true, "description": "expense | income | both — filters by type (also returns 'both' categories)" }
               ]
-            }
+            },
+            "description": "Returns all system categories plus user-created categories. Each entry includes transaction_count and total_amount. Icons are Lucide React component names (e.g. 'ShoppingCart', 'Sparkles', 'Fuel')."
           }
         },
         {
@@ -399,10 +426,11 @@
               "host": ["{{base_url}}"],
               "path": ["categories", "stats"],
               "query": [
-                { "key": "month", "value": "5"    },
-                { "key": "year",  "value": "2026" }
+                { "key": "month", "value": "5",    "description": "1-12 (default: current month)" },
+                { "key": "year",  "value": "2026", "description": "4-digit year (default: current year)" }
               ]
-            }
+            },
+            "description": "Returns expense breakdown per category for the given month/year, including transaction_count, total_amount, and percentage of total spending."
           }
         },
         {
@@ -429,8 +457,9 @@
             "url": "{{base_url}}/categories",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Transport\",\n  \"icon\": \"transport\",\n  \"color\": \"#06B6D4\",\n  \"type\": \"expense\"\n}"
-            }
+              "raw": "{\n  \"name\": \"Hobbies\",\n  \"icon\": \"Gamepad2\",\n  \"color\": \"#8B5CF6\",\n  \"type\": \"expense\"\n}"
+            },
+            "description": "Creates a user-defined category. icon should be a valid Lucide React component name (PascalCase). type: expense | income | both."
           }
         },
         {
@@ -445,8 +474,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Transportation\",\n  \"color\": \"#0EA5E9\"\n}"
-            }
+              "raw": "{\n  \"name\": \"Hobbies & Games\",\n  \"icon\": \"Gamepad2\",\n  \"color\": \"#7C3AED\"\n}"
+            },
+            "description": "Updates a user-created category. System categories (is_system=true) cannot be edited."
           }
         },
         {
@@ -457,7 +487,8 @@
               "raw": "{{base_url}}/categories/{{category_id}}",
               "host": ["{{base_url}}"],
               "path": ["categories", "{{category_id}}"]
-            }
+            },
+            "description": "Deletes a user-created category. System categories cannot be deleted. Transactions linked to this category will have category_id set to NULL."
           }
         }
       ]
@@ -479,14 +510,15 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/wallets",
-            "description": "Returns { wallets: [...], recent_activity: [...] }. wallets includes per-wallet recent_activity (5 each). recent_activity is the 20 most recent transactions across all wallets."
+            "description": "Returns { wallets: [...], recent_activity: [...] }. Each wallet includes transaction_count, total_income, total_expense, and recent_activity (last 5 transactions). recent_activity at root level is the 20 most recent transactions across all wallets."
           }
         },
         {
           "name": "Get Total Balance",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/wallets/balance"
+            "url": "{{base_url}}/wallets/balance",
+            "description": "Returns total_balance (sum of all wallet balances), wallet_count, total_income, and total_expense across all time."
           }
         },
         {
@@ -497,7 +529,8 @@
               "raw": "{{base_url}}/wallets/{{wallet_id}}",
               "host": ["{{base_url}}"],
               "path": ["wallets", "{{wallet_id}}"]
-            }
+            },
+            "description": "Returns wallet details with recent_activity (last 5 transactions)."
           }
         },
         {
@@ -513,8 +546,9 @@
             "url": "{{base_url}}/wallets",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"BCA Savings\",\n  \"type\": \"bank\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"balance\": 12850000,\n  \"color\": \"#1B4D35\"\n}"
-            }
+              "raw": "{\n  \"name\": \"BCA Savings\",\n  \"type\": \"bank\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"balance\": 5000000,\n  \"color\": \"#1B4D35\"\n}"
+            },
+            "description": "Creates a new wallet. type: bank | credit_card | e_wallet | cash. balance defaults to 0."
           }
         },
         {
@@ -525,9 +559,9 @@
             "url": "{{base_url}}/wallets/transfer",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"from_wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"amount\": 500000,\n  \"notes\": \"Transfer to savings\",\n  \"date\": \"2026-05-30\"\n}"
+              "raw": "{\n  \"from_wallet_id\": \"{{wallet_id}}\",\n  \"to_wallet_id\": \"\",\n  \"amount\": 500000,\n  \"notes\": \"Transfer to savings\",\n  \"date\": \"2026-05-31\"\n}"
             },
-            "description": "Moves funds between two wallets. Creates a transfer transaction and adjusts both balances atomically. Returns the created transaction with wallet_name and to_wallet_name."
+            "description": "Moves funds between two wallets atomically. Creates a transfer transaction and adjusts both balances. Returns 400 if source wallet has insufficient balance."
           }
         },
         {
@@ -544,7 +578,7 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"BCA Primary\",\n  \"account_number\": \"****1234\",\n  \"bank_name\": \"Bank BCA\",\n  \"color\": \"#1B4D35\",\n  \"balance\": 12850000,\n  \"is_default\": true\n}"
             },
-            "description": "All fields are optional. balance can be set directly here."
+            "description": "All fields are optional. Setting is_default=true will unset the previous default wallet. balance can be set directly."
           }
         },
         {
@@ -555,7 +589,8 @@
               "raw": "{{base_url}}/wallets/{{wallet_id}}",
               "host": ["{{base_url}}"],
               "path": ["wallets", "{{wallet_id}}"]
-            }
+            },
+            "description": "Deletes a wallet. Default wallet cannot be deleted. Transactions linked to this wallet will have wallet_id set to NULL."
           }
         }
       ]
@@ -576,14 +611,16 @@
           ]}}],
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/budgets"
+            "url": "{{base_url}}/budgets",
+            "description": "Returns all budgets with category info, spent amount, percentage_used, remaining, and status (healthy | warning | exceeded)."
           }
         },
         {
           "name": "Get Budget Summary",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/budgets/summary"
+            "url": "{{base_url}}/budgets/summary",
+            "description": "Returns aggregate stats: total_budgets, exceeded count, warning count, total_budget_amount, total_spent."
           }
         },
         {
@@ -611,7 +648,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"category_id\": \"{{category_id}}\",\n  \"amount\": 2000000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-05-01\",\n  \"end_date\": \"2026-05-31\"\n}"
-            }
+            },
+            "description": "Creates a budget. period: weekly | monthly | yearly (default: monthly). category_id and end_date are optional."
           }
         },
         {
@@ -626,8 +664,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 2500000\n}"
-            }
+              "raw": "{\n  \"name\": \"Monthly Groceries\",\n  \"amount\": 2500000,\n  \"period\": \"monthly\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-30\"\n}"
+            },
+            "description": "All fields are optional."
           }
         },
         {
@@ -660,15 +699,10 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "receipt",
-                  "type": "file",
-                  "src": "",
-                  "description": "JPG, PNG or PDF, max 5MB"
-                }
+                { "key": "receipt", "type": "file", "src": "", "description": "JPG, PNG or PDF, max 5MB" }
               ]
             },
-            "description": "Returns 202 with scan_id and status=processing. Poll Get Scan Result until status is completed or failed."
+            "description": "Uploads a receipt image/PDF. Returns 202 immediately with scan_id and status=processing. AI processing runs asynchronously. Poll Get Scan Result until status is 'completed' or 'failed'."
           }
         },
         {
@@ -679,7 +713,8 @@
               "raw": "{{base_url}}/scans/{{scan_id}}",
               "host": ["{{base_url}}"],
               "path": ["scans", "{{scan_id}}"]
-            }
+            },
+            "description": "Returns scan details including status (pending | processing | completed | failed), merchant_name, total_amount, scan_date, suggested_category, confidence_score, and confidence_level (high | medium | low)."
           }
         },
         {
@@ -694,16 +729,17 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"merchant_name\": \"Indomaret\",\n  \"total_amount\": 88000,\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-14\",\n  \"notes\": \"From receipt scan\"\n}"
+              "raw": "{\n  \"merchant_name\": \"Indomaret\",\n  \"total_amount\": 88000,\n  \"category_id\": \"{{category_id}}\",\n  \"wallet_id\": \"{{wallet_id}}\",\n  \"date\": \"2026-05-31\",\n  \"notes\": \"From receipt scan\"\n}"
             },
-            "description": "Saves the scan result as a transaction. All fields are optional and fall back to AI suggestions."
+            "description": "Saves the scan as an expense transaction. All fields are optional — falls back to AI-extracted values. Scan must have status=completed. Wallet balance is reduced by the amount."
           }
         },
         {
           "name": "List Scan History",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/scans"
+            "url": "{{base_url}}/scans",
+            "description": "Returns the 20 most recent receipt scans with suggested category info."
           }
         },
         {
@@ -724,41 +760,11 @@
       "name": "Analysis",
       "item": [
         {
-          "name": "Dashboard Overview",
+          "name": "Full Analysis Summary",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/analysis/dashboard",
-            "description": "Home page payload: balance summary, recent transactions (with wallet_name + category), budget tracking, 7-month wealth growth, and all categories (for FE forms)."
-          }
-        },
-        {
-          "name": "Insights",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/analysis/insights",
-            "description": "Analysis page payload: 6-month cash flow, weekday heatmap, AI category clusters, recurring merchants, LSTM forecast, rule-based insights."
-          }
-        },
-        {
-          "name": "Spending Forecast",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/analysis/forecast",
-            "description": "Next-week spending prediction across the 8 AI categories. Returns 503 when the AI service is unavailable."
-          }
-        },
-        {
-          "name": "Unusual Spending",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/analysis/unusual-spending"
-          }
-        },
-        {
-          "name": "AI Service Health",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/analysis/ai-health"
+            "url": "{{base_url}}/analysis/summary",
+            "description": "Unified endpoint that returns all analysis data in one call:\n\n• dashboard: balance summary (income/expense with MoM % change), recent 5 transactions, top 5 budgets by usage, 7-month wealth growth, all categories\n• insights: 6-month cash flow, weekday spending heatmap, spending clusters by category (last 30 days), recurring merchants (last 90 days), rule-based + Gemini AI insights\n• unusual_spending: transactions in the last 30 days that are >50% above the category average\n• forecast: next-week spending prediction per AI category (Beauty, F&B, Gas, Groceries, Health, HouseHold, Lifestyle, Listrik) — null if AI service is unavailable\n• ai_health: AI service status and URL"
           }
         }
       ]

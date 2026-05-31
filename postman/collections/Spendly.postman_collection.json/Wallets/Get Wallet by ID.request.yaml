@@ -1,0 +1,5 @@
+$kind: http-request
+description: Returns wallet details with recent_activity (last 5 transactions).
+url: "{{base_url}}/wallets/{{wallet_id}}"
+method: GET
+order: 3000

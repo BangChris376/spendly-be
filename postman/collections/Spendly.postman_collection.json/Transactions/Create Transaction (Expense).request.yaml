@@ -1,0 +1,26 @@
+$kind: http-request
+description: Creates an expense transaction. Wallet balance is reduced by amount. Returns 400 if wallet has insufficient balance.
+url: "{{base_url}}/transactions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "type": "expense",
+      "amount": 85000,
+      "merchant_name": "Indomaret",
+      "category_id": "{{category_id}}",
+      "wallet_id": "{{wallet_id}}",
+      "date": "2026-05-31",
+      "notes": "Daily groceries"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.response.code === 201) {
+        pm.collectionVariables.set('transaction_id', pm.response.json().data.id);
+      }
+    language: text/javascript
+order: 3000

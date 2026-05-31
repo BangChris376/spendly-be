@@ -1,0 +1,17 @@
+$kind: http-request
+description: Moves funds between two wallets atomically. Creates a transfer transaction and adjusts both balances. Returns 400 if source wallet has insufficient balance.
+url: "{{base_url}}/wallets/transfer"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "from_wallet_id": "{{wallet_id}}",
+      "to_wallet_id": "",
+      "amount": 500000,
+      "notes": "Transfer to savings",
+      "date": "2026-05-31"
+    }
+order: 5000

@@ -1,0 +1,18 @@
+$kind: http-request
+description: Creates a transfer between two wallets. Source wallet balance is reduced, destination is increased. Returns 400 if source wallet has insufficient balance.
+url: "{{base_url}}/transactions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "type": "transfer",
+      "amount": 500000,
+      "wallet_id": "{{wallet_id}}",
+      "to_wallet_id": "",
+      "date": "2026-05-31",
+      "notes": "Transfer to savings"
+    }
+order: 5000

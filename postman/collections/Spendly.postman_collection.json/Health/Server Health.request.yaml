@@ -1,0 +1,7 @@
+$kind: http-request
+description: Returns service status, version, and environment. No auth required.
+url: http://localhost:3000/health
+method: GET
+auth:
+  type: noauth
+order: 1000

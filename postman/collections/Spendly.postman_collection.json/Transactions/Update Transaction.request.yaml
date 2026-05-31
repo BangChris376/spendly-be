@@ -1,0 +1,18 @@
+$kind: http-request
+description: All fields are optional. Wallet balances are adjusted automatically when amount or wallet_id changes. Returns 400 if new amount exceeds wallet balance.
+url: "{{base_url}}/transactions/{{transaction_id}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "amount": 90000,
+      "merchant_name": "Indomaret",
+      "category_id": "{{category_id}}",
+      "wallet_id": "{{wallet_id}}",
+      "date": "2026-05-31",
+      "notes": "Updated note"
+    }
+order: 6000

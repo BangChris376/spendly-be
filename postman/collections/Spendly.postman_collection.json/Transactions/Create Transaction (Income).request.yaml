@@ -1,0 +1,18 @@
+$kind: http-request
+description: Creates an income transaction. Wallet balance is increased by amount.
+url: "{{base_url}}/transactions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "type": "income",
+      "amount": 15000000,
+      "merchant_name": "Salary Deposit",
+      "category_id": "{{category_id}}",
+      "wallet_id": "{{wallet_id}}",
+      "date": "2026-05-31"
+    }
+order: 4000
