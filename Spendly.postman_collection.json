@@ -1229,14 +1229,27 @@
         ]
       },
       {
+        "name": "Dashboard",
+        "item": [
+          {
+            "name": "Get Dashboard Summary",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/dashboard/summary",
+              "description": "Dashboard endpoint returning balance summary, recent transactions, top budgets, wealth growth, and categories."
+            }
+          }
+        ]
+      },
+      {
         "name": "Analysis",
         "item": [
           {
-            "name": "Full Analysis Summary",
+            "name": "Analysis Summary",
             "request": {
               "method": "GET",
               "url": "{{base_url}}/analysis/summary",
-              "description": "Unified endpoint returning all analysis data:\n\n• dashboard: balance summary (income/expense with MoM % change), recent 5 transactions, top 5 budgets by usage, 7-month wealth growth, all categories\n• insights: 6-month cash flow, weekday heatmap, spending clusters by category (last 30 days), recurring merchants (last 90 days), rule-based + Gemini AI insights\n• unusual_spending: transactions in last 30 days that are >50% above category average\n• forecast: next-week spending prediction per AI category — null if AI service unavailable\n• ai_health: AI service status and URL"
+              "description": "Unified endpoint returning all analysis data:\n\n• insights: 6-month cash flow, weekday heatmap, spending clusters by category (last 30 days), recurring merchants (last 90 days), rule-based + Gemini AI insights\n• unusual_spending: transactions in last 30 days that are >50% above category average\n• forecast: next-week spending prediction per AI category — null if AI service unavailable\n• ai_health: AI service status and URL"
             }
           }
         ]
