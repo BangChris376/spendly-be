@@ -184,10 +184,9 @@ const _fetchAnalysis = async (userId, filterQuery, forecastData) => {
        WHERE t.user_id = $1
          AND t.type = 'expense'
          AND t.date >= NOW() - INTERVAL '30 days'
-         AND c.name = ANY($2::text[])
        GROUP BY c.id, c.name, c.icon, c.color
        ORDER BY total DESC`,
-      [userId, AI_CATEGORIES]
+      [userId]
     ),
     query(
       `SELECT merchant_name,
