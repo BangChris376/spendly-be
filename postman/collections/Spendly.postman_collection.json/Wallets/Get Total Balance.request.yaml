@@ -1,5 +1,0 @@
-$kind: http-request
-description: Returns total_balance (sum of all wallet balances), wallet_count, total_income, and total_expense across all time.
-url: "{{base_url}}/wallets/balance"
-method: GET
-order: 2000

@@ -1,5 +1,0 @@
-$kind: http-request
-description: Deletes a transaction and reverses its effect on wallet balance.
-url: "{{base_url}}/transactions/{{transaction_id}}"
-method: DELETE
-order: 7000

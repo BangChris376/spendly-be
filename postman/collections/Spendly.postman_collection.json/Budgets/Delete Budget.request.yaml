@@ -1,4 +1,0 @@
-$kind: http-request
-url: "{{base_url}}/budgets/{{budget_id}}"
-method: DELETE
-order: 6000

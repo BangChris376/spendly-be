@@ -1,5 +1,0 @@
-$kind: http-request
-description: "Returns aggregate stats: total_budgets, exceeded count, warning count, total_budget_amount, total_spent."
-url: "{{base_url}}/budgets/summary"
-method: GET
-order: 2000

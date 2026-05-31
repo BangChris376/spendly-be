@@ -1,5 +1,0 @@
-$kind: http-request
-description: Returns the 20 most recent receipt scans with suggested category info.
-url: "{{base_url}}/scans"
-method: GET
-order: 4000

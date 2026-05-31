@@ -1,5 +1,0 @@
-$kind: http-request
-description: Deletes a wallet. Default wallet cannot be deleted. Transactions linked to this wallet will have wallet_id set to NULL.
-url: "{{base_url}}/wallets/{{wallet_id}}"
-method: DELETE
-order: 7000
